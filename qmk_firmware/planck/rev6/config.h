@@ -139,8 +139,11 @@
 #define WS2812_DMA_STREAM STM32_DMA1_STREAM2
 #define WS2812_DMA_CHANNEL 2
 
-// Additional not default features
+// Additional sets not default features
 #define AUDIO_CLICKY
 #define DYNAMIC_MACRO_NO_NESTING
+#define NO_MUSIC_MODE
+#define NO_DEBUG
+#define NO_PRINT
 
 #endif
