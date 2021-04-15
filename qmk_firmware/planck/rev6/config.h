@@ -143,7 +143,8 @@
 #define AUDIO_CLICKY
 #define DYNAMIC_MACRO_NO_NESTING
 #define NO_MUSIC_MODE
-#define NO_DEBUG
-#define NO_PRINT
+// Already setted rules.mk file
+//#define NO_DEBUG
+//#define NO_PRINT
 
 #endif
