@@ -1,12 +1,6 @@
-download oracle instantclient and sdk option.
+# download oracle 12.1 instantclient and sdk option package.
 
-set environment variables.
-setx CGO_CFLAGS "C:\instantclient_12_1\sdk\include"
-setx CGO_LDFLAGS "-LC:\instantclient_12_1 -loci"
-setx OCI_INC_DIR "C:\instantclient_12_1"
-setx OCI_LIB_DIR "C:\instantclient_12_1\sdk\lib\msvc"
-
-install MSYS2
+# install MSYS2
 
 # Update pacman
 pacman -Su
@@ -16,7 +10,7 @@ pacman -Su
 # Install pkg-config and gcc
 pacman -S mingw64/mingw-w64-x86_64-pkg-config mingw64/mingw-w64-x86_64-gcc
 
-c:\msys64\mingw64\lib\pkgconfig\oci8.pc
+make c:\msys64\mingw64\lib\pkgconfig\oci8.pc
 -------------------------------------------------------------------------------------------------------
 version=12.1
 build=client64
@@ -39,8 +33,8 @@ setx PKG_CONFIG_PATH "C:\msys64\mingw64\lib\pkgconfig"
 setx PATH "%PATH%;C:\msys64\mingw64\bin"
 
 
-then create your project inside your %GO_PATH% like this
+# then create your project inside your %GO_PATH% like this
 c:/go_workspace/example.com/user/go_oracle_test
 
-add ora v.4 package as depedency
+# add ora v.4 package as depedency
 go get gopkg.in/rana/ora.v4
