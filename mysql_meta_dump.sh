@@ -45,5 +45,9 @@ ORDER BY TABLE_NAME ASC, INDEX_NAME ASC;
 
 mysql> notee
 
+<<<<<<< HEAD
 # Table meta dump : option -d (nodata)
+=======
+# Table meta dump
+>>>>>>> origin/master
 $ mysqldump -d -f -u<username> -p<password> -h <hostname> <dbname> > metadump.sql
