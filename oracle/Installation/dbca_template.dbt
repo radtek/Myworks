@@ -1,0 +1,256 @@
+<DatabaseTemplate name="dbca_template_custom" description="" version="19.0.0.0.0">
+   <CommonAttributes>
+      <option name="OMS" value="false"/>
+      <option name="JSERVER" value="true"/>
+      <option name="SPATIAL" value="false"/>
+      <option name="IMEDIA" value="false"/>
+      <option name="ORACLE_TEXT" value="true">
+         <tablespace id="SYSAUX"/>
+      </option>
+      <option name="SAMPLE_SCHEMA" value="false"/>
+      <option name="CWMLITE" value="false">
+         <tablespace id="SYSAUX"/>
+      </option>
+      <option name="APEX" value="false"/>
+      <option name="DV" value="false"/>
+   </CommonAttributes>
+   <Variables/>
+   <CustomScripts Execute="false"/>
+   <InitParamAttributes>
+      <InitParams>
+         <initParam name="db_name" value="NWMDEV"/>
+         <initParam name="dispatchers" value="(PROTOCOL=TCP) (SERVICE=NWMDEVXDB)"/>
+         <initParam name="audit_file_dest" value="/oralog/admin/NWMDEV/adump"/>
+         <initParam name="compatible" value="19.0.0"/>
+         <initParam name="remote_login_passwordfile" value="EXCLUSIVE"/>
+         <initParam name="log_archive_dest_1" value="'LOCATION=/oraarch'"/>
+         <initParam name="processes" value="3000"/>
+         <initParam name="local_listener" value="LISTENER_NWMDEV"/>
+         <initParam name="undo_tablespace" value="UNDOTBS1"/>
+         <initParam name="control_files" value="(&quot;/oraredo01/ct_NWMDEV_01.ctl&quot;, &quot;/oraredo02/ct_NWMDEV_02.ctl&quot;, &quot;/oradata01/NWMDEV/ct_NWMDEV_03.ctl&quot;)"/>
+         <initParam name="diagnostic_dest" value="/oralog"/>
+         <initParam name="audit_trail" value="db"/>
+         <initParam name="log_archive_format" value="%t_%s_%r.arc"/>
+         <initParam name="nls_territory" value="KOREA"/>
+         <initParam name="db_block_size" value="8192"/>
+         <initParam name="open_cursors" value="1000"/>
+         <initParam name="nls_language" value="KOREAN"/>
+         <initParam name="pga_aggregate_target" value="7168" unit="MB"/>
+         <initParam name="sga_target" value="14336" unit="MB"/>
+      </InitParams>
+      <MiscParams>
+         <databaseType>MULTIPURPOSE</databaseType>
+         <maxUserConn>20</maxUserConn>
+         <percentageMemTOSGA>40</percentageMemTOSGA>
+         <customSGA>false</customSGA>
+         <characterSet>AL32UTF8</characterSet>
+         <nationalCharacterSet>AL16UTF16</nationalCharacterSet>
+         <archiveLogMode>true</archiveLogMode>
+         <initParamFileName>{ORACLE_BASE}/admin/{DB_UNIQUE_NAME}/pfile/init.ora</initParamFileName>
+      </MiscParams>
+      <SPfile useSPFile="true">/oracle/product/19.0.0/dbhome_1/dbs/spfile{SID}.ora</SPfile>
+   </InitParamAttributes>
+   <StorageAttributes>
+      <ControlfileAttributes id="Controlfile">
+         <maxDatafiles>100</maxDatafiles>
+         <maxLogfiles>16</maxLogfiles>
+         <maxLogMembers>3</maxLogMembers>
+         <maxLogHistory>1</maxLogHistory>
+         <maxInstances>8</maxInstances>
+         <image name="ct_{DB_UNIQUE_NAME}_01.ctl" filepath="/oraredo01/"/>
+         <image name="ct_{DB_UNIQUE_NAME}_02.ctl" filepath="/oraredo02/"/>
+         <image name="ct_{DB_UNIQUE_NAME}_03.ctl" filepath="/oradata01/{DB_UNIQUE_NAME}/"/>
+      </ControlfileAttributes>
+      <DatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/sysaux01.dbf" con_id="1">
+         <tablespace>SYSAUX</tablespace>
+         <temporary>false</temporary>
+         <online>true</online>
+         <status>0</status>
+         <size unit="MB">550</size>
+         <reuse>true</reuse>
+         <autoExtend>true</autoExtend>
+         <increment unit="KB">10240</increment>
+         <maxSize unit="MB">-1</maxSize>
+      </DatafileAttributes>
+      <DatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/system01.dbf" con_id="1">
+         <tablespace>SYSTEM</tablespace>
+         <temporary>false</temporary>
+         <online>true</online>
+         <status>0</status>
+         <size unit="MB">700</size>
+         <reuse>true</reuse>
+         <autoExtend>true</autoExtend>
+         <increment unit="KB">10240</increment>
+         <maxSize unit="MB">-1</maxSize>
+      </DatafileAttributes>
+      <DatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/temp01.dbf" con_id="1">
+         <tablespace>TEMP</tablespace>
+         <temporary>false</temporary>
+         <online>true</online>
+         <status>0</status>
+         <size unit="MB">20</size>
+         <reuse>true</reuse>
+         <autoExtend>true</autoExtend>
+         <increment unit="KB">640</increment>
+         <maxSize unit="MB">-1</maxSize>
+      </DatafileAttributes>
+      <DatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/undotbs01.dbf" con_id="1">
+         <tablespace>UNDOTBS1</tablespace>
+         <temporary>false</temporary>
+         <online>true</online>
+         <status>0</status>
+         <size unit="MB">200</size>
+         <reuse>true</reuse>
+         <autoExtend>true</autoExtend>
+         <increment unit="KB">5120</increment>
+         <maxSize unit="MB">-1</maxSize>
+      </DatafileAttributes>
+      <DatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/users01.dbf" con_id="1">
+         <tablespace>USERS</tablespace>
+         <temporary>false</temporary>
+         <online>true</online>
+         <status>0</status>
+         <size unit="MB">5</size>
+         <reuse>true</reuse>
+         <autoExtend>true</autoExtend>
+         <increment unit="KB">1280</increment>
+         <maxSize unit="MB">-1</maxSize>
+      </DatafileAttributes>
+      <TablespaceAttributes id="SYSAUX" con_id="1">
+         <temporary>false</temporary>
+         <defaultTemp>false</defaultTemp>
+         <undo>false</undo>
+         <local>true</local>
+         <blockSize>-1</blockSize>
+         <allocation>1</allocation>
+         <uniAllocSize unit="KB">-1</uniAllocSize>
+         <initSize unit="KB">64</initSize>
+         <increment unit="KB">64</increment>
+         <incrementPercent>50</incrementPercent>
+         <minExtends>1</minExtends>
+         <maxExtends>4096</maxExtends>
+         <minExtendsSize unit="KB">64</minExtendsSize>
+         <logging>true</logging>
+         <recoverable>false</recoverable>
+         <maxFreeSpace>0</maxFreeSpace>
+         <autoSegmentMgmt>true</autoSegmentMgmt>
+         <bigfile>false</bigfile>
+         <datafilesList>
+            <TablespaceDatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/sysaux01.dbf"/>
+         </datafilesList>
+      </TablespaceAttributes>
+      <TablespaceAttributes id="SYSTEM" con_id="1">
+         <temporary>false</temporary>
+         <defaultTemp>false</defaultTemp>
+         <undo>false</undo>
+         <local>true</local>
+         <blockSize>-1</blockSize>
+         <allocation>3</allocation>
+         <uniAllocSize unit="KB">-1</uniAllocSize>
+         <initSize unit="KB">64</initSize>
+         <increment unit="KB">64</increment>
+         <incrementPercent>50</incrementPercent>
+         <minExtends>1</minExtends>
+         <maxExtends>-1</maxExtends>
+         <minExtendsSize unit="KB">64</minExtendsSize>
+         <logging>true</logging>
+         <recoverable>false</recoverable>
+         <maxFreeSpace>0</maxFreeSpace>
+         <autoSegmentMgmt>true</autoSegmentMgmt>
+         <bigfile>false</bigfile>
+         <datafilesList>
+            <TablespaceDatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/system01.dbf"/>
+         </datafilesList>
+      </TablespaceAttributes>
+      <TablespaceAttributes id="TEMP" con_id="1">
+         <temporary>true</temporary>
+         <defaultTemp>true</defaultTemp>
+         <undo>false</undo>
+         <local>true</local>
+         <blockSize>-1</blockSize>
+         <allocation>1</allocation>
+         <uniAllocSize unit="MB">1</uniAllocSize>
+         <initSize unit="KB">64</initSize>
+         <increment unit="KB">64</increment>
+         <incrementPercent>0</incrementPercent>
+         <minExtends>1</minExtends>
+         <maxExtends>0</maxExtends>
+         <minExtendsSize unit="KB">64</minExtendsSize>
+         <logging>true</logging>
+         <recoverable>false</recoverable>
+         <maxFreeSpace>0</maxFreeSpace>
+         <autoSegmentMgmt>true</autoSegmentMgmt>
+         <bigfile>false</bigfile>
+         <datafilesList>
+            <TablespaceDatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/temp01.dbf"/>
+         </datafilesList>
+      </TablespaceAttributes>
+      <TablespaceAttributes id="UNDOTBS1" con_id="1">
+         <temporary>false</temporary>
+         <defaultTemp>false</defaultTemp>
+         <undo>true</undo>
+         <local>true</local>
+         <blockSize>-1</blockSize>
+         <allocation>1</allocation>
+         <uniAllocSize unit="KB">-1</uniAllocSize>
+         <initSize unit="KB">512</initSize>
+         <increment unit="KB">512</increment>
+         <incrementPercent>50</incrementPercent>
+         <minExtends>8</minExtends>
+         <maxExtends>4096</maxExtends>
+         <minExtendsSize unit="KB">512</minExtendsSize>
+         <logging>true</logging>
+         <recoverable>false</recoverable>
+         <maxFreeSpace>0</maxFreeSpace>
+         <autoSegmentMgmt>true</autoSegmentMgmt>
+         <bigfile>false</bigfile>
+         <datafilesList>
+            <TablespaceDatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/undotbs01.dbf"/>
+         </datafilesList>
+      </TablespaceAttributes>
+      <TablespaceAttributes id="USERS" con_id="1">
+         <temporary>false</temporary>
+         <defaultTemp>false</defaultTemp>
+         <undo>false</undo>
+         <local>true</local>
+         <blockSize>-1</blockSize>
+         <allocation>1</allocation>
+         <uniAllocSize unit="KB">-1</uniAllocSize>
+         <initSize unit="KB">128</initSize>
+         <increment unit="KB">128</increment>
+         <incrementPercent>0</incrementPercent>
+         <minExtends>1</minExtends>
+         <maxExtends>4096</maxExtends>
+         <minExtendsSize unit="KB">128</minExtendsSize>
+         <logging>true</logging>
+         <recoverable>false</recoverable>
+         <maxFreeSpace>0</maxFreeSpace>
+         <autoSegmentMgmt>true</autoSegmentMgmt>
+         <bigfile>false</bigfile>
+         <datafilesList>
+            <TablespaceDatafileAttributes id="/oradata01/{DB_UNIQUE_NAME}/users01.dbf"/>
+         </datafilesList>
+      </TablespaceAttributes>
+      <RedoLogGroupAttributes id="1">
+         <reuse>false</reuse>
+         <fileSize unit="MB">500</fileSize>
+         <Thread>1</Thread>
+         <member ordinal="0" memberName="rl_{DB_UNIQUE_NAME}_01a.log" filepath="/oraredo01/"/>
+         <member ordinal="0" memberName="rl_{DB_UNIQUE_NAME}_01b.log" filepath="/oraredo02/"/>
+      </RedoLogGroupAttributes>
+      <RedoLogGroupAttributes id="2">
+         <reuse>false</reuse>
+         <fileSize unit="MB">500</fileSize>
+         <Thread>1</Thread>
+         <member ordinal="0" memberName="rl_{DB_UNIQUE_NAME}_02a.log" filepath="/oraredo01/"/>
+         <member ordinal="0" memberName="rl_{DB_UNIQUE_NAME}_02b.log" filepath="/oraredo02/"/>
+      </RedoLogGroupAttributes>
+      <RedoLogGroupAttributes id="3">
+         <reuse>false</reuse>
+         <fileSize unit="MB">500</fileSize>
+         <Thread>1</Thread>
+         <member ordinal="0" memberName="rl_{DB_UNIQUE_NAME}_03a.log" filepath="/oraredo01/"/>
+         <member ordinal="0" memberName="rl_{DB_UNIQUE_NAME}_03b.log" filepath="/oraredo02/"/>
+      </RedoLogGroupAttributes>
+   </StorageAttributes>
+</DatabaseTemplate>

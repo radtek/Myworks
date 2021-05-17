@@ -1,0 +1,662 @@
+db file sequential read
+db file sequential read 대기 이벤트는 싱글 블록 I/O 수행 시에 발생하는 대기 이벤트입니다. 한번의 싱글 블록 I/O가 발생할 때마다 한 번의 db file sequential read이벤트 대기가 발생합니다. 싱글 블록 I/O는 파일로부터 하나의 블록을 읽는 모든 작업들에서 발생 가능하며 일반적으로 인데스 스캔 및 ROWID에 의한 테이블 액세스 시에 발생합니다.
+
+* Parameter
+  P1(파일#), P2(블록#), P3(블록 수(항상 1))
+
+* Wait Time
+  I/O를 수행하기 위해 대기한 시간을 의미
+
+* 일반적인 문제 상황 및 개선방법
+  - 원인: 비효율적인 인덱스 스캔으로 인한 과다한 싱글 블록 I/O
+  - 진단 방법: SQL 실행 계획 확인(DBMS_XPLAN 패키지를 이용)
+                  인덱스 Clustering Factor 확인
+  - 개선 방법: SQL 튜닝, 인덱스 Clustering Factor
+
+  - 원인: Row changing 및 Row migration에 의한 추가적인 싱글 블록 I/O
+  - 진단 방법: ANALYZE TABLE 수행
+                  V$SYSSTAT 및 V$SESSTAT의 table fetch continued row 값의 증가 여부 확인
+  - 개선 방법: PCTFREE를 작게 해서 테이블 재생성, 더 큰 블록 크기를 이용해서 테이블 재생성
+
+  - 원인: 선택도(Selectivity)가 좋지 않은 인덱스 사용
+  - 진단 방법: 실행계획 확인
+  - 개선 방법: SQL 튜닝, 사용인덱스 변경 또는 신규인덱스 생성
+
+인덱스 Clustering Factor란?
+
+-- 인덱스 Clustering Factor 확인 방법
+ 
+SELECT t.owner,
+  i.index_name,
+  t.blocks AS t_blocks,
+  i.num_rows,
+  i.clustering_factor
+FROM   dba_indexes i,
+  dba_tables t
+WHERE  i.table_name = t.table_name
+AND i.table_owner = t.owner
+AND i.index_name  = :INDEX_NAME;
+
+인덱스 Clustering Factor(이하 CF)는 인덱스 키 칼럼 기준으로 테이블의 데이터들이 얼마나 잘 정렬(군집)되어 있는지를 나타내는 수치입니다. CF는 메모리에 단 하나의 블록만을 담을 수 있는 공간이 있다고 가정하고, 인덱스 스캔 시에 테이블 블록을 몇 번 액세스해야 하는지를 계산한 값입니다.
+즉 CF가 높을수록 db file sequential read 대기가 증가할 수 있는 가능성이 존재합니다. CF 값은 ANALYZE 명령문이나, DBMS_STATS 패키지를 이용해서 확인할 수 있습니다. 인덱스에 대해 통계정보를 생성하면 DBA_INDEXES.CLUSTERING_FACTOR에 CF의 값이 입력됩니다. CF 수치는 테이블의 블록 수에 가까울 수록 좋고, 로우 수에 가까울수록 좋지 않습니다. 성능 문제의 원인이 CF인 경우, 테이블을 인덱스의 정렬순서와 동일한 순서로 재생성함으로써 해결할 수 있습니다. 하지만 테이블 재생성은 해당 테이블을 참조하는 다른 인덱스 성능에 영향을 미치므로 신중하게 고려해야 합니다.
+
+로우 체이닝(ROW CHAINING), 로우 마이그레이션(ROW MIGRATION) 이란?
+
+SELECT value
+FROM   v$sysstat
+WHERE  name = `table fetch continued row`;
+ 
+SELECT a.sid, b.value
+FROM   v$session a, v$sesstat b, v$statname c
+WHERE  a.sid=b.sid
+and     b.statistic#=c.statistic#
+and     c.name=`table fetch continued row`;
+ 
+인덱스의 ROWID를 이용해서 테이블을 액세스하는 경우, ROW CHAINING이나 ROW MIGRATION이 발생한 로우에 대해서는 추가적인 디스크 I/O가 발생하게 되면 db file sequential read 대기가 증가하게 됩니다. ANALYZE 명령을 이용해 통계정보를 생성하면 DBA_TABLES 뷰의 CHAIN_CNT 칼럼에 CHAINING이나 MIGRATION이 발생한 로우 수가 기록됩니다. 또한 위와 같은 SQL 문을 이용해서 현재 시스템 상에서 발생하고 있는 ROW CHAINING이나 ROW MIGRATION 발생 내역을 확인할 수 있습니다.
+
+
+
+
+db file scattered read
+db file scattered read 대기 이벤트는 멀티 블록 I/O시 발생하는 대기 이벤트입니다. Full Table Scan 및 Index Fast Full Scan을 수행하는 경우, 성능 향상을 위해서 여러 개의 블록을 한번에 읽는 멀티블록 I/O를 수행합니다. 멀티 블록 I/O를 한번 수행할 때마다 Physicial I/O가 끝나기를 기다리게 되며, db file scattered read 이벤트를 대기하게 됩니다. 멀티 블록 I/O는 OS마다 최대값에 한계가 있으며, DB_FILE_MULTIBLOCK_READ_COUNT 파라미터로 지정된 값만큼 수행합니다.
+
+
+* Parameter
+  P1(파일#), P2(시작 블록#), P3(블록 수)
+
+* Wait Time
+  I/O를 수행하기 위해 대기한 시간
+
+* 일반 문제상황 및 개선방법
+  - 원인: 비효율적인 Full Table Scan으로 인한 과도한 멀티 블록 I/O
+  - 진단 방법: SQL 실행 계획 확인(DBMS_XPLAN 패키지를 이용)
+  - 개선 방법: 파티션 적용, 인덱스 생성, KEEP BUFFER 적용, 
+                   DB_FILE_MULTIBLOCK_READ_COUNT(MBRC) 설정 값 증가, 큰 사이즈의 블록 사용
+
+  - 원인: 버퍼 캐시의 크기가 지나치게 작아 반복적으로 Physical I/O가 발생
+  - 진단 방법: SQL 실행 계획 확인(DBMS_XPLAN 패키지를 이용)
+  - 개선 방법: 다중 버퍼 풀 사용, 버퍼 캐시의 최적화
+
+  - 원인: 불필요한 Index Fast Full Scan 사용으로 인한 과도한 멀티 블록 I/O
+  - 진단 방법: SQL 실행계획 확인(DBMS_XPLAN 패키지를 이용)
+  - 개선 방법: SQL문 튜닝
+
+
+Physical I/O 분류
+Physical I/O는 Conventional Path I/O와 Direct Path I/O로 나누어집니다.
+Conventional Path I/O는 일반적으로 알고있는 버퍼 캐시를 경유하여 블록을 읽는 작업을 의미합니다. Direct Path I/O는 데이터파일에 있는 블록이 버퍼 캐시를 거치지 않고 PGA로 올리는 것입니다. Direct Path I/O가 발생하면, I/O 작업이 발생되기 전에 체크 포인트가 발생됩니다. 이렇게 되면 더티 버퍼를 데이터 파일에 쓰게 되어 데이터 파일과 버퍼 캐시의 내용에 대해서 동기화 한 후 Direct Path I/O가 발생하게 됩니다.
+
+Index Full Scan vs. Index Fast Full Scan
+인덱스 스캔에서 발생될 수 있는 성능문제는 넓은 범위 인덱스 스캔에 의한 I/O 발생량을 많이 일으키는 경우가 거의 대부분입니다. 필연적으로 많은 양의 인덱스 스캔이 발생되어야만 하고, 정렬이 필요 없는 경우라면 싱글 블록 I/O가 발생되는 Index Full Scan이 아닌 Index Fast Full Scan을 사용하여 멀티 블록 I/O로 유도하는 것이 성능적인 측면에서 바람직합니다.
+
+-- Index Fast Full Scan 제어 파라미터
+_FAST_FULL_SCAN_ENABLED=TRUE(Default=TRUE)
+ 
+-- Index Fast Full Scan 유도 힌트
+/*+ index_ffs(table_alias index_name) */
+ 
+
+DB_FILE_MULTIBLOCK_READ_COUNT(MBRC) 설정
+alter session set db_file_multiblock_read_count = 1000;
+select /*+ full(a) */ count(*) from big_table a;
+
+-- 아래의 예제는 10046 트레이스 파일로부터 발췌한 것입니다.
+-- 시스템에서 허용할 수 있는 최대 MBRC는 128 블록임을 알 수 있습니다.
+
+WAIT #1: nam=`db file scattered read` ela=17946 p1=6 p2=56617 p3=128
+WAIT #1: nam=`db file scattered read` ela=21055 p1=6 p2=56745 p3=128
+WAIT #1: nam=`db file scattered read` ela=17628 p1=6 p2=56873 p3=128
+WAIT #1: nam=`db file scattered read` ela=29881 p1=6 p2=57001 p3=128
+WAIT #1: nam=`db file scattered read` ela=33220 p1=6 p2=57129 p3=128
+...
+
+높은 MBRC 수치는 옵티마이저가 Full Table Scan을 선호하도록 영향을 줄 수 있습니다. 적절한 수치는 애플리케이션(DSS 또는 OLTP)에 따라 다릅니다. 높은 MBRC 수치는 Full Table Scan 수행을 좀 더 빠르게 수행할 수 있도록 하므로, 배치 처리시 유리할 수 있습니다. MBRC 수치는 sstiomax, DB_BLOCK_SIZE 및 DB_BLOCK_BUFFERS 등 몇 가지 요소에 따라 좌우됩니다. 사용 환경에 맞춰 쉽게 설정하기 위해서는, 위의 예에서 보는 바와 같이 MBRC에 아주 큰 값을 주고 오라클이 시스템에서 처리 가능한 최대값으로 수행하도록 합니다. 그 후, Full Table Scan을 수행하는 SQL을 실행시킨 뒤 V$SESSION_WAIT 뷰를 조회하면 됩니다. 그러면 db file scattered read 대기 이벤트의 P3 파라미터의 수치가 현재 시스템의 최댓값이 됩니다. 
+다른 방법은 10046 트레이스 이벤트를 설정하는 것입니다. 이 최댓값은 데이터베이스 레벨에 설정하기 보다는 Full Table Scan의 수행속도를 향상시킬 필요성이 있는 세션에 대해 설정해야 합니다.
+
+
+
+direct path read
+direct path read 이벤트 대기는 Parallel Query 수행 시 슬레이브 세션(Slave Session)이 수행하는 direct path I/O에 의해 발생합니다. direct path I/O는 SGA 내의 버퍼 캐시를 거치지 않고 세션의 PGA로 직접 블록을 읽어 들이는 것으로 direct read는 I/O 방식(synchronous I/O, asynchronous I/O)에 상관없이 수행될 수 있으나 하드웨어 플랫폼과 DISK_ASYNCH_IO 파라미터에 영향을 받습니다.
+
+
+* Parameter
+  P1(절대(absolute)파일#), P2(시작 블록#), P3(블록 수)
+
+* Wait Time
+  I/O를 수행하기 위해 대기한 시간을 의미
+
+* 일반 문제상황 및 개선방법
+  - 원인: Parallel Query 수행 시 슬레이브 세션이 수행하는 direct path I/O
+  - 진단 방법: SQL 실행계획 확인(DBMS_XPLAN 패키지를 이용)
+  - 개선 방법: SQL 튜닝 > Parallel Query 자체의 성능 개선
+
+
+  Parallel Query의 성능 향상
+
+  Parallel Query를 수행하는 과정에서의 direct path read 대기는 필연적인 것으로 이 대기 자체를 튜닝하는 것은 불가능합니다. 오히려 SQL 튜닝을 통해 Parallel Query 자체의 성능을 개선하는 것이 올바른 접근 방법입니다. 시스템의 용량에 비해 불필요하게 Parallel Query를 수행하는 것은 오히려 성능을 저하시키는 요인이 됩니다. 한가지 기억할 것은 데이터 파일에 대해 직접 읽기 작업을 수행하기 전에 읽기의 대상이 되는 객체의 더티 블록이 데이터 파일에 기록이 되어야 한다는 것입니다. 즉 체크 포인트가 발생하게 됩니다. 이 작업을 수행하는 동안 코디네이터 세션은 enq: TC - connection 대기 이벤트를 발생시킵니다.
+  만약 병렬 쿼리(parallel query) 슬레이브에서 direct reads가 발생한다면, 병렬 스캔(parallel scan)이 parent SQL문에 적합한지와 슬레이브의 개수가 적당한지 확인해야 합니다. 또한 쿼리 슬레이브들이 시스템의 CPU와 디스크 자원을 모두 점유하지 않는지도 확인해야 합니다.
+
+
+
+Direct Path I/O
+ - 정렬작업을 위해 정렬 세그먼트(Sort segment)를 읽고 쓰는 경우, direct path read temp, direct path write temp 이벤트를 대기합니다.
+ - Parallel Query를 위해 데이터파일을 읽는 경우, direct path read 이벤트를 대기합니다.
+ - Parallel DML(PDML), CTAS를 위해 데이터파일을 쓰는 경우, direct path write 이벤트를 대기합니다.
+ - NOCACHE 속성으로 생성된 LOB 세그먼트를 읽고 쓰는 경우 direct path read(lob), direct path write(lob) 이벤트를 대기합니다.
+ - I/O 시스템이 데이터를 읽어서 오라클에 반환하는 속도보다 훨씬 빠른 속도로 버퍼를 요구할 때, 오라클 성능 개선을 위해 readahead I/O(이후에 읽을 것으로 판단되는 데이터를 미리 한꺼번에 읽는 I/O 작업)을 이용합니다. 이경우 direct path read 이벤트를 대기합니다.
+
+오라클의 I/O는 기본적으로 SGA(버퍼 캐시)를 경우합니다. 하지만 특수한 상황에서는 SGA를 우회해서 PGA에 데이터를 올립니다. 데이터를 공유할 필요가 없을 때는 버퍼 캐시에 데이터를 적재하는 과정에서 발생하는 오버헤드를 피함으로써 성능을 개선하는 것이 가능합니다. 버퍼 캐시내의 변경된 블록을 데이터파일에 기록하는 것은 DBWR 프로세스 고유의 작업입니다. 반면 버퍼 캐시를 우회하는 쓰기 작업은 개별 프로세스가 직접 수행하게 됩니다. 이처럼 버퍼 캐시를 우회하는 I/O 작업을 direct path I/O라고 부릅니다.
+
+_DB_FILE_DIRECT_IO_COUNT의 조정
+_DB_FILE_DIRECT_IO_COUNT 히든 파라미터의 값이 direct path I/O에서의 최대 I/O 버퍼 크기를 결정합니다. 오라클 9i부터 이 값은 기본적으로 1M의 값을 가집니다. 하지만 실제로는 O/S나 하드웨어 설정에 따라 최댓값이 결정됩니다. 이 값을 높이면 Parallel Query의 성능이 높아질 수도 있으나, 대부분 실제 사용 가능한 값은 1M보다 작은 값이므로 실제로는 변경할 필요가 없습니다.
+ 
+
+direct path read와 undo
+ERROR at line 1 :  
+
+ORA-12801: error signaled in parallel query server P002
+ 
+ORA-01555: snapshot too old: rollback segment number 68 with name
+"_SYSSMU68$" too small
+ 
+-- PQ 슬레이브 세션이 데이터 파일에 대해 direct read를 수행하면서 변경된 블록을 발견하면 언두 데이터를 참조
+ 
+Direct path read가 비록 데이터파일에서 직접 데이터를 읽지만, 언두를 참조하는 메커니즘은 동일합니다. 즉, direct path read는 SGA(Shared Global Area)를 경유하지 않을 뿐, 읽기 일관성(Read consistency)을 보장하는 방법은 동일합니다. 이것을 증명하는 방법은 크기가 작은 언두 테이블스페이스(Undo tablespace)를 생성한 후, Parallel Query를 수행하면서 다른 세션에서 DML을 과다하게 수행할 때 ORA-01555(Snapshot too old)에러가 나는 것을 관찰하는 것입니다. 
+
+
+DB_FILE_DIRECT_IO_COUNT
+DB_FILE_DIRECT_TO_COUNT 파라미터는 direct path read 성능에 영향을 미칠 수 있습니다. 해당 파라미터는 direct reads, direct writes에 대한 최대 I/O 버퍼크기로 설정해야 합니다. 오라클 8i까지는 대부분의 플랫폼에서 기본 설정 값은 64 블록이었습니다. 따라서 DB_BLOCK_SIZE가 8K인 경우 direct reads, direct writes에 대한 최대 I/O 버퍼크기는 512K(8K*64)입니다. 최대 I/O 버퍼 크기는 하드웨어의 한계값에 의해서도 제한됩니다.
+오라클 9i에서는 DB_FILE_DIRECT_IO_COUNT 파라미터는 hidden 파라미터로 변경되었고, 블록수가 아니라 바이트(BYTE) 단위로 변경되었습니다. 오라클 9i의 기본 설정 값은 1MB입니다. 실질적인 direct I/O 크기는 하드웨어 환경설정(configuration) 및 한계값에 의해서도 영향을 받습니다.
+
+
+Direct Read I/O 크기 알기
+WAIT #1: nam='direct path read' ela=4 p1=4 p2=86919 p3=8
+WAIT #1: nam='direct path read' ela=5 p1=4 p2=86927 p3=8
+WAIT #1: nam='direct path read' ela=10 p1=4 p2=86935 p3=8
+WIAT #1: nam='direct path read' ela=39 p1=4 p2=86943 p3=8
+...
+
+direct read를 수행하는 세션에 대해 10046 트레이스 이벤트를 레벨 8로 설정합니다. P3 파라미터는 읽은 블록 수를 나타냅니다. 위의 예제의 경우, 블록 크기가 8k이므로 direct path read I/O 크기는 64K(8K*8블록)입니다. 또한, V$SESSION_WAIT 뷰를 조회하여 direct path read 대기 이벤트의 P3 값을 확인할 수 있습니다.
+ 
+데이터 파일에 대한 direct path read의 증명
+Session A: Degree가 4인 pq_test 테이블에 대해 PQ를 여러번 수행하면서 direct path read 유발
+ 
+declare 
+v_count number;
+begin
+for idx in 1 .. 100 loop
+select count(*) into v_count from pq_test;
+end loop;
+end;
+/
+ 
+Session B: Session A에서 발생한 PQ의 슬레이브 세션에 대해서 direct path read 이벤트를 캡쳐
+(Session A의 SID=162)
+ 
+set serveroutput on size 100000
+declare
+begin
+for px in (select * from v$px_session where acsid=162) loop
+for wait in (select * from v$session_wait where
+sid = px.sid and event like '%direct path read%') loop
+dbms_output.put_line('SID='||wait.sid||', P=1'||wait.P1);
+end loop;
+end loop;
+end;
+/
+ 
+-- Session B의 수행결과
+SID=138, P1=1
+SID=152, P1=1
+SID=144, P1=1
+...
+SID=142, P1=1
+SID=144, P1=1
+SID=138, P1=1
+
+-- direct path read 대기 이벤트의 P1 = file#이므로 해당되는 파일이 실제 데이터파일인지 확인할 수 있다.
+ 
+SQL>exec print_table('select * from v$datafile where file# = 1');
+ 
+FILE#                    : 1
+BLOCK_SIZE               : 8192
+NAME
+C:\ORCALE\PRODUCT\10.1.0\ORADATA\UKJADB\SYSTEM01.DBF
+PLUGGED_IN               : 0
+BLOCK1_OFFSET            : 8192
+AUX_NAME                 : NONE
+-- 위와 같이 system01.dbf라는 데이터 파일에 대한 direct path read임을 알 수 있다.
+
+하나의 세션에서 PQ를 수행한 후, PQ가 수행되는 동안 다른 세션에서 V$SESSION_WAIT 뷰를 조회해서 P1 값을 얻으면 어떤 파일에 대한 direct path read인지 알 수 있습니다.
+
+출처: http://12bme.tistory.com/311 [길은 가면, 뒤에 있다]
+
+direct path write
+direct path write 대기 이벤트는 세션 PGA(Program Global Area) 내부의 버퍼로부터 데이터파일로 기록할 때 발생됩니다. 세션은 다수의 direct write를 요청한 후 처리를 진행합니다. 세션이 I/O 처리가 완료되었다고 인지하는 시점에 direct path write 대기 이벤트를 대기합니다.
+direct path write 대기는 Direct load 작업이 발생함을 의미합니다. 이러한 작업이 요청될 경우 오라클은 SGA(System Global Area)를 경우하지 않고 데이터 파일에 직접 쓰기 작업을 수행합니다. 즉, DBWR(Database Writer) 프로세스에 의해 쓰기 작업이 이루어지는 것이 아니라 서버 프로세스에 의해 직접 쓰기 작업이 이루어집니다. CTAS나 Insert /*+ append */, Direct 모드로 SQL*Loader를 수행할 때 direct load 작업이 수행됩니다.
+
+* Parameter
+ P1(절대(Absolute) 파일#), P2(시작 블록#), P3(블록 수)
+
+* Wait Time
+ I/O를 수행하기 위해 대기한 시ㅏ간을 의미
+
+* 일반적인 문제 상황 및 개선방법
+  - 원인: Direct load 작업(CTAS, insert /*+ append*/ ...)의 수행
+  - 진단 방법: 대량의 Direct load를 수행하고 있는 세션 및 SQL 문 파악
+  - 개선 방법: Dlirect 모드와 Parallel 모드를 병행하여 수행(PCTAS, direct parallel 모드로 SQL*Loader 등)
+
+
+Direct load 작업의 특징
+ - SGA를 거치지 않고, 데이터 파일에 직접 쓰기를 수행
+ - HWM 이후에 블록을 추가(Append)한다.
+    즉, 프리리스트(FLM)나 비트맵 블록(ASSM)에서 관리하는 프리 블록들을 사용하지 않는다.
+ - 추가된 데이터에 대해 언두를 생성하지 않는다.(단 CTAS(Create Table AS Select)의 경우 딕셔너리 변경에 대한 언두는 생성된다.)
+ - 테이블에 Nologging 옵션이 주어진 경우에는 리두(Redo)가 생성되지 않는다.
+ - 테이블에 대해 TM 락을 Exclusive하게 획득하기 때문에 다른 세션에서의 DML이 허용되지 않는다.
+
+Direct 모드와 Parallel 모드를 병행해서 수행함으로써 성능을 더욱 극대화할 수 있습니다. PCTAS(Parallel CTAS), Insert /*+ parallel append */나 direct parallel 모드로 SQL*Loader를 수행하는 것이 대표적인 예입니다.
+Direct 모드인 경우에는 데이터가 직접 테이블 세그먼트로 기록되지만, Parallel 모드와 병행되는 경우에는 일단 테이블 세그먼트가 속한 영구 테이블스페이스(Paramenant Tablespace)내의 임시 세그먼트(Temporary Segment)에 직접 기록한 다음 모든 작업이 성공적으로 끝난 후에 테이블 세그먼트에 병합된다는 것을 유의해야 합니다.
+Direct load 작업 수행시 발생하는 direct path write 대기는 필연적인 것이므로 이 대기의 발생 자체를 줄일 수는 없습니다. 만일 direct path write 이벤트의 평균대기시간이 지나치게 높게 나온다면 파일시스템 자체의 성능에 문제가 있다고 판단할 수 있습니다. 비동기식 I/O가 사용될 경우, direct path write 대기 이벤트의 대기횟수와 대기시간은 오해의 소지가 있을 수 있습니다.
+캐싱되지 않은 LOB 세그먼트에 쓰기 I/O 작업시 발생되는 direct path write 대기 이벤트는 오라클 8.1.7 부터는 direct path write(lob) 대기 이벤트로 별도로 구분됩니다.
+ 
+direct path read temp
+정렬작업을 위해 임시 영역을 읽고 쓰는 경우에는 direct path read temp, direct path write temp 이벤트를 대기합니다. 이 대기 이벤트들은 오라클 10g 이후에 분화된 것으로 오라클 9i까지는 direct path read, direct path wirte 대기로 관찰되었습니다. 정렬 세그먼트에서의 direct path I/O는 정렬해야 할 데이터가 정렬을 위해 할당된 PGA(Program Global Area) 메모리 영역보다 큰 경우에 발생합니다.
+
+* Parameter
+  P1(절대(Absolute) 파일#), P2(시작 블록), P3(블록수)
+ 
+* Wait Time
+  I/O를 수행하기 위해 대기한 시간
+ 
+* 일반적인 문제 상황 및 개선방법
+ - 원인: 정렬을 위해 할당된 PGA 메모리 영역보다 큰 크기의 데이터
+ - 진단 방법: SQL 실행 계획 확인(DBMS_XPLAN 패키지를 이용)
+                 PGA_AGGREGATE_TARGET 파라미터 값 확인
+ - 개선 방법: 정렬이 필요한 SQL 문장의 튜닝, 정렬작업을 위한 메모리 영역을 추가로 할당
+ 
+ - 원인: Multi pass sort 작업의 발생
+ - 진단 방법: PGA_AGGREGATE_TARGET 파라미터 값 확인
+ - 개선 방법: PGA_AGGREGATE_TARGET의 값 증가
+
+
+PGA_AGGREGATE_TARGET과 Direct I/O
+
+SQL> alter system set PGA_AGGREGATE_TARGET = 200M;
+SQL> @show_param max_size
+_smm_max_size (KByte 단위)
+ 40960
+ 
+_smm_px_max_size
+ 102400
+ 
+-- 인덱스를 생성한다. 인덱스 생성시 내부 정렬작업이 발생
+SQL> create index pdm1_idx on pdm1_test(id);
+ 
+SQL> @sesstat
+stat_name 값을 입력하시오: 'session pga memory max'
+==> 44920200
+ 
+실제 PGA_AGGREGATE_TARGET을 설정한 경우 개별 세션의 PGA값이 어떻게 지정되는지 아래 스크립트를 통해 확인할 수 있습니다. PGA_AGGREGATE_TARGET을 그대로 사용하면서 특정 세션에 대해서만 작업 간의 크기를 크게 주고싶다면, 해당 세션의 PGA관리정책만을 변경하면 됩니다. 즉, alter session set workarea_size_policy = manual로 변경한 후, alter session set sort_area_size = ...을 이용해 필요한 만큼 큰 값을 주면 됩니다.
+ 
+ 
+-- PGA 전체크기를 10M으로 변경
+SQL> alter system set pga_aggregate_target = 10M;
+ 
+-- 정렬 작업 수행
+SQL> create index pdm1_dix on pdm1_test(id);
+Index created.
+Elapsed: 00:00:40.07
+ 
+EVENT                                TOTAL_        WAIT TIME_WAITED
+--------------------------------- -------------- ----------------------------
+SQL*Net message                       22              3251
+from client
+direct path read temp                4953               7
+log file sync                           2               4
+direct path write temp                684               1
+SQL*Net message                       23                0
+to client
+direct path write                       4               0
+events in waitclass                     1               0
+Other
+ 
+ 
+-- PGA 전체크기를 1G로 늘린 후 재 수행
+SQL> alter system set pga_aggregate_target = 1G;
+ 
+-- 정렬 작업 수행
+SQL> create index pdm1_dix on pdm1_test(id);
+Index created.
+Elapsed: 00:00:28.07
+
+EVENT                                TOTAL_        WAIT TIME_WAITED
+--------------------------------- -------------- ----------------------------
+SQL*Net message                      20              8268
+from client
+log file switch                       4               33
+completion
+log file sync                         2                8
+SQL*Net message                      21                0
+to client
+events in waitclass                   1                0
+Other
+direct path write                     4                0
+ 
+ 
+PGA_AGGREGATE_TARGET 값을 적절하게 설정해주는 경우, direct path I/O가 사라지고 이로 인해 direct path read temp, direct path write temp 대기현상이 완전히 사라지게 됩니다. 더불어 성능도 크게 개선되는 것을 확인할 수 있습니다.
+
+ 
+db file parallel read
+이름과 달리, parallel DML or parallel query와 관련이 없습니다. db file parallel read는 데이터베이스 복구 수행 시 복구해야 하는 블록들을 여러개의 데이터 파일로부터 동시에 읽어들일 때 발생합니다. 또한, 하나 이상의 데이터 파일로부터 연속되지 않는 싱글 블록들을 동시에 읽어들이는 Prefetching 시에도 발생합니다. 발생합니다.
+ 
+* Prefetch
+한번에 여러개 Single Block I/O를 동시 수행하는 것입니다. 오라클을 포함한 모든 DBMS는 디스크 블록을 읽을 때 곧이어 읽을 가능성이 높은 블록을 미리 읽어오는 Prefetch 기능을 제공합니다. 데이터블록을 읽는 도중에 물리적인 Disk I/O 서브 시스템에 I/O Call을 발생시키고 잠시 대기 시킵니다. 어차피 대기 상태에서 잠시 쉬어야하므로 곧이어 읽을 가능성이 높은 블록들을 버퍼 캐시에 미리 적재해 놓는다면 대기 이벤트 발생횟수를 그만큼 줄일 수 있습니다. Prefetch db file parallel read 대기 이벤트로 측정됩니다.
+Prefetch는 한 번의 I/O Call로 앞으로 읽을 가능성이 높은 블록을 함께 읽어오는 기능입니다. 특히 Clustring fcator가 좋지 않은 인덱스의 경우, 인덱스를 통한 테이블 Access시 1건의 데이터를 읽기 위해 1번의 Single Block I/O가 발생하게 됩니다.
+이런 비효율을 개선하기 위해 1번의 I/O Call 시 앞으로 읽을 가능성이 높은 블록을 함께 읽는 Multi Block I/O 기능입니다. 이 기능을 사용하여 블록을 읽을 때 목격되는 이벤트가 db file parallel read입니다.
+ 
+
+* Parameter
+  P1(동시에 읽고 있는 파일 수), P2(읽고 있는 총 블록 수), P3(총 I/O 요청 횟수(멀티 블록 read I/O를 하지 않는 경우 P2와 동일)
+ 
+* Wait Time
+  I/O를 수행하기 위해 대기한 시간을 의미
+ 
+* 일반적인 문제 상황 및 대처방안
+ - 원인: Clustering Factor가 좋지 않아 멀티 블록 I/O 발생
+ - 진단 방법: SQL 실행 계획 확인(DBMS_XPLAN 패키지를 이용)
+ - 개선 방법: db file parallel read 대기 이벤트가 Prefetch에 의해 발생했을 경우, 성능에 긍정적인 영향을 줍니다. 단 SQL 자체의 비효율로 인해 불필요하게 발생한 Prefetch가 아닌지를 점검하고 튜닝한다.
+ 
+
+db file parallel write
+DBWR이 더티 블록을 기록하기 위해 I/O 요청을 보낸 후, 요청이 끝나기를 기다리는 동안 대기하는 이벤트입니다. db file parallel write 대기는 기본적으로 I/O 이슈입니다.
+DBWR 프로세스에서 이 대기가 광범위하게 나타난다면 데이터 파일과 관련된 I/O 시스템에 심각한 성능 저하 현상이 발생한 것으로 판단할 수 있습니다. 만일, I/O 시스템의 성능에 문제가 없는데도 db file parallel write 대기가 사라지지 않는다면 그때는 I/O 시스템이 감당할 수 없을 정도의 많은 쓰기 요청이 발생하는 것으로 간주할 수 있습니다.
+ 
+db file parallel write read 대기 이벤트와 동일하게 병렬 처리(parallel DML)와 연관은 없습니다. 버퍼 캐시를 경우하는 모든 데이터는 DBWR 프로세스에 의해 디스크에 기록이 됩니다. DBWR 프로세스가 더티 블록을 기록하기 위한 I/O 요청을 보낸 후 요청이 끝나기를 기다리는 동안 db file parallel write 이벤트를 대기하게 됩니다.
+DBWR 프로세스는 한번의 I/O 요청을 통해 하나의 더티 블록을 디스크에 기록하는 방식으로 동작하지 않습니다. 한번의 I/O 요청에 여러 개의 더티 블록을 디스크에 기록하는 방식으로 동작하는데 이것을 write batch라고 합니다. DBWR 프로세스가 write batch를 수행한 후 I/O 요청이 완료되기를 대기할 때 해당 이벤트가 발생됩니다. 하지만 비동기식(asynchronous) I/O를 사용할 경우 DBWR 프로세스는 I/O 요청이 완료되기를 대기하지 않습니다. 단지 write batch를 통해 디스크로 기록되어야 할 더티 블록들의 일부분이 디스크로 기록되고, 프리 버퍼(free buffer)로 변경된 후 lru 리스트에 등록될 때까지만 대기합니다. 이것은 더 많은 쓰기 요청을 발생시킵니다.
+
+db file parallel write 대기는 기본적으로 I/O 이슈라고 보면됩니다. 만일 DBWR 프로세스에서 이 대기가 광범위하게 나타난다면 데이터 파일과 관련된 I/O 시스템에 심각한 성능저하 현상이 발생하는 것으로 판단할 수 있습니다. 만일 I/O 시스템의 성능에 문제가 없는데도 db file parallel write 대기가 사라지지 않는다면 그 때는 I/O 시스템이 감당할 수 없을 정도의 많은 쓰기 요청이 발생하는 것으로 간주할 수 있습니다.
+
+
+* Parameter
+  P1(I/O 요청에 대한 전체 횟수), P2(인터럽트), P3(오라클9.2부터는 I/O 완료를 위해 대기한 시간, 이전 버전에서는 총 I/O 요청 횟수)
+ 
+* 일반적인 문제 상황 및 대처방안
+ - 원인: I/O 시스템의 성능 저하
+ - 진단 방법: I/O 시스템 확인, DB_WRITER_PROCESSES 파라미터 값 확인
+ - 개선 방법: Row device와 비동기 I/O(asynchronous I/O)를 조합해서 사용
+                 DB_WRITER_PROCESSES 값 증가(DBWR 프로세스 개수 증가)
+ 
+ - 원인: 다량의 I/O 작업의 발생(체크 포인트의 잦은 발생)
+ - 진단 방법: FAST_START_MTTR_TARGET 파라미터 값 확인
+                 리두 로그 파일 사이즈 확인
+ - 개선 방법: FAST_START_MTTR_TARGET 파라미터 값 증가
+                 리두 로그 파일의 크기가 지나치게 작을 경우 크기 증가
+ 
+ - 원인: 비효율적인 버퍼 캐시 사용
+ - 진단 방법: 사용 가능한 SGA(System Global Area) 메모리 사이즈 및 캐시 사이즈 확인
+ - 개선 방법: 다중 버퍼풀(DEFAULT, KEEP, RECYCLE)의 적절한 사용
+ 
+
+DB_WRITER_PROCESSES
+
+-- CPU_COUNT 확인 방법
+SELECT NAME, VALUE
+FROM V$PARAMETER
+WHERE NAME = 'cpu_count';
+ 
+-- DBWR 프로세스 갯수 확인 방법
+SELECT NAME, VALUE
+FROM V$PARAMETER
+WHERE NAME = 'db_writer_processes';
+ 
+대량의 DML 작업이 빈번히 발생하는 시스템이고 CPU 개수가 충분하다면, DB_WRITER_PROCESSES 파라미터 값을 조정해서 DBWR 프로세스 개수를 증가시킬 필요가 있습니다. 복수의 DBWR 프로세스는 비동기를 흉내내는 효과를 갖습니다. 오라클이 권고하는 DBWR 프로세스 개수는 CPU_COUNT/8 입니다.
+
+
+잦은 체크 포인트 발생
+잦은 체크 포인트가 발생하는 경우 DBWR 프로세스의 활동량이 지나치게 많아지고 이로 인해 DBWR 프로세스의 성능이 저하될 수 있습니다. 체크 포인트가 발생하는 경우는 아래와 같습니다.
+
+ - FAST_START_MTTR_TARGET 파라미터 값에 의해 발생
+ - 리두 로그 파일 스위치 발생
+ - direct path read 발생
+ - Truncate, Drop, Hot Backup 등
+ 
+
+control file parallel write
+control file parallel write 대기 이벤트는 세션이 모든 컨트롤 파일(control file)에 대한 쓰기 I/O 요청이 완료되기를 대기할때 발생합니다. 오라클 서버 프로세스는 동시에(parallel) 쓰기 I/O 요청을 합니다. control file parallel write 대기 이벤트에 대한 블로킹 세션은 존재하지 않습니다. 해당 이벤트를 대기하는 세션은 컨트롤 파일에 쓰기 I/O 요청이 완료될 때까지 O/S와 I/O 서브 시스템의 수행을 기다리는 것입니다. 만일, control file parallel write 대기 이벤트에 대한 대기현상이 광범위하게 발생한다면, 컨트롤 파일에 쓰기 I/O 요청이 많거나, 컨트롤 파일에 정보를 기록하는 성능이 좋지 않다는 것입니다. 또한, 다음과 같은 경우에 컨트롤 파일과 관련된 경합이 발생할 수 있습니다.
+
+ - 로그 파일 스위치가 자주 발생하는 경우
+ - 체크 포인트가 자주 발생하는 경우
+ - Nologging에 의한 데이터파일 변경이 잦은 경우
+ - I/O 시스템 성능이 느린 경우
+
+control file parallel write 대기 이벤트는 세션이 모든 컨트롤 파일(control file)에 대한 쓰기 I/O 요청이 완료되기를 대기할 때 발생합니다. control file parallel write 대기 이벤트에 대한 블로킹 세션은 존재하지 않습니다. 해당 이벤트를 대기하는 세션은 컨트롤 파일에 쓰기 I/O 요청이 완료될 때까지 O/S와 I/O 서브시스템의 수행을 기다리는 것입니다. 컨트롤 파일에 정보를 기록하려는 세션은 enq: CF - contention을 획득해야 합니다. 만일 control file parallel write 대기 이벤트에 대한 대기현상이 광범위하게 발생한다면, 컨트롤 파일에 쓰기 I/O 요청이 많거나, 컨트롤 파일에 정보를 기록하는 성능이 좋지 않다는 것입니다.
+
+
+* Wait Time
+  모든 I/O 요청을 완료하는데 실제로 소요된 시간
+
+* Parameter
+  P1(컨트롤 파일 개수), P2(컨트롤 파일에 기록하려는 총 블록 수), P3(I/O 요청 횟수)
+
+* 일반적인 문제상황 및 대처방안
+  - 원인: 로그 파일 스위치의 빈번한 발생
+  - 진단 방법: V$LOG_HISTORY 뷰를 조회하여 로그 스위치 빈도 수 확인
+  - 개선 방법: V$LOG 뷰를 조회하여 리두 로그 크기 점검
+ 
+  - 원인: NOLOGGING에 의한 데이터파일의 잦은 변경
+  - 진단 방법: 애플리케이션이 NOLOGGING LOB에 대한 변경작업 수행 여부 점검
+  - 개선 방법: 독립적인 디스크 공간에 위치
+                   RAW DEVICE나 DIRECT I/O 사용
+                   10359 이벤트를 설정하여 컨트롤 파일의 변경 방지
+ 
+V$CONTROLFILE_RECORD_SECTION 뷰
+
+SQL> SELECT TYPE, RECORDS_USED FROM V$CONTROLFILE_RECORD_SECTION;  
+
+TYPE                                          RECORD_USED
+------------------------------------------- --------------------------
+DATABASE                                      1
+CKPT PROGRESS                                 0
+REDO THREAD                                   1
+REDO LOG                                      3
+DATAFILE                                      15
+FILENAME                                      19
+TABLESPACE                                    12
+TEMPORARY FILENAME                            1
+RMAN CONFIGURATION                            0
+LOG HISTORY                                   292
+OFFLINE RANGE                                 0
+ARCHIVED LOG                                  0
+BACKUP SET                                    0
+BACKUP PIECE                                  0
+BACKUP DATAFILE                               0
+BACKUP REDOLOG                                0
+DATAFILE COPY                                 0
+BACKUP CORRUPTION                             0
+COPY CORRUPTION                               0
+DELETED OBEJECT                               0
+PROXY COPY                                    0
+BACKUP SPFILE                                 0
+DATABASE INCARNATION                          2
+FLASHBACK LOG                                 0
+RECOVERY DESTINATION                          1
+INSTANCE SPACE RESERVATION                    1
+REMOVABLE RECOVERY FILES                      0
+RMAN STATUS                                   0
+THREAD INSTANCE NAME MAPPING                  8
+MTTR                                          1
+DATAFILE HISTORY                              0
+STANDBY DATABASE MATRIX                       10
+GUARANTEED RESTORE POINT                      0
+RESTORE POINT                                 0
+
+V$CONTROLFILE_RECORD_SECTION 뷰를 조회하면 현재 컨트롤 파일 내에 어떤 정보가 관리되고 있는지 확인할 수 있습니다.
+
+
+Control File의 Transaction을 수행하는 세션 확인
+
+SELECT /*+ ordered */
+    a.sid,
+    decode(a.type, 'BACKGROUND', 'BACKGROUND-' || SUBSTR(a.program, instr(a.program,'(',1,1)), 'FOREGROUND') type,
+    b.time_wated,
+    round(b.time_waited/b.total_waits, 4) average_wait,
+    found((sysdate - a.logon_time)*24) hours_connected
+FROM   v$session_event b, v$session a
+WHERE a.sid = b.sid
+AND b.event = 'control file parallel write'
+ORDER BY type, time_waited;
+ 
+SID  TYPE                     TIME_WAITED    AVERAGE_WAIT    HOURS_CONNECTED
+---- ----------------------- -------------- --------------- ---------------------------
+ 10   BACKGROUND-(ARC0)        525            .3431           117
+ 11   BACKGROUND-(ARC1)        519            .3390           117
+  7   BACKGROUND-(CKPT)        64147          .3431           117
+  6   BACKGROUND-(LGWR)        1832           .3011           117
+517   BACKGROUND               2              .5120           1
+
+컨트롤 파일의 갱신을 요청한 프로세스들은 갱신이 완료될 때까지 control file parallel write 이벤트를 대기하게 됩니다. 로그 스위치, 데이터파일 추가, 삭제 등과 같은 오퍼레이션은 컨트롤 파일의 변경이 필요합니다. 또한 대부분의 LOB 오퍼에이션에 대해서도 컨트롤 파일 변경이 수행됩니다.
+포그라운드 프로세스와 백그라운드 프로세스들은 컨트롤 파일에 기록할 수 있습니다. 3초마다 CKPT 프로세스는 온라인 리두 로그 안의 체크 포인트 위치를 컨트롤 파일에 기록합니다. 일반적인 환경에서 CKPT 프로세스가 control file parallel write 대기 이벤트를 가장 오래 대기합니다. ARCH 프로세스는 아카이브 로그와 관련된 정보를 컨트롤 파일에 기록하며 LGWR 프로세스는 로그 스위치가 발생할 때마다 컨트롤 파일을 변경합니다.
+만일 LGWR 프로세스의 대기시간이 길다면, 너무 많은 로그 스위치가 발생된다는 것을 의미하며 V$LOG 뷰를 조회하여 리두 로그 크기를 점검해야 합니다. 데이터베이스의 트랜잭션 양에 비해 너무 작을 수 있기 때문입니다.
+ 
+ 
+read by other session
+
+read by other session 대기 이벤트는 buffer busy waits 대기 이벤트와 마찬가지로 Buffer Lock 경합과 관련이 있습니다. read by other session 대기 이벤트가 발생하는 상황은 다음과 같습니다.
+
+ - 디스크에서 메모(버퍼 캐시)로 적재하고자 하는 프로세스 A는 해당 블록에 대해 Buffer Lock을 Exclusive 모드로 획득합니다.
+ - 동일 블록을 읽고자 하는 프로세스 B는 해당 블록에 대해 Buffer Lock을 Shared 모드로 획득하고자 합니다. 이 때 프로세스 A가 Buffer Lock을 Exclusive 모드로 획득한 채로 블록을 읽고 있기 때문에, 프로세스 B는 프로세스 A의 작업이 끝날 때까지 대기해야 합니다.
+ - 프로세스 A가 블록을 디스크에서 메모리로 읽어 들일 때까지 프로세스 B는 read by other session 이벤트를 대기합니다.
+ 
+read by other session 이벤트는 오라클 10g에서 추가된 이벤트입니다. 오라클 9에서는 Reason Code 값이 220인 buffer busy waits 이벤트에 해당합니다.
+
+* Parameter
+  P1(File#), P2(Block#), P3(블록 클래스)
+ 
+* Wait Time
+  일반적으로 최대 1초까지 기다린다.
+
+* 체크 포인트 및 해결방안
+read by other session 이벤트는 블록을 디스크에서 메모리로 읽어 들이는 과정에서 필연적으로 발생합니다. 따라서 이벤트 대기 시간이 지나치게 길지 않다면 문제가 되지 않습니다. 만일 read by other session 이벤트 대기 시간이 지나치게 길다면 SQL 튜닝을 통해 Physical I/O의 일량을 줄여야 합니다. 또한 동시에 여러 프로세스가 동일 블록을 읽지 않게끔 애플리케이션을 수정하는 것도 고려할 필요가 있습니다.
+또한 read by other session 대기와 함께 db file sequential read, db file scttered read 대기와 같은 I/O 대기 현상이 항상 같이 발생하는 것에 주목해야 합니다. read by other session 대기는 그 속성상 항상 Physical I/O와 함께 나타나게 됩니다. 따라서 read by other session 대기가 발생했던 동일한 상황에서도 데이터가 이미 버퍼 캐시에 적재되어 있는 경우에는 Physical I/O가 발생하지 않고, 자연스럽게 read by other session 대기 및 db file sequential read, db file scattered read 대기현상 또한 사라지게 됩니다.
+
+ 
+
+Physical I/O 분류
+Physical I/O는 Conventional Path I/O와 Direct Path I/O로 나누어집니다. Conventional Path I/O는 일반적으로 알고 있는 버퍼 캐시를 경유하여 블록을 읽는 작업을 의미합니다. Direct Path I/O는 데이터 파일에 있는 블록이 버퍼 캐시를 거치지 않고 PGA(Program Global Area)로 올리는 것으로 Direct Path I/O가 발생하게 되면, I/O 작업이 발생되기 전에 체크 포인트가 발생되어 더티 버퍼를 데이터 파일에 쓰게 되어 데이터 파일과 버퍼 캐시의 내용에 대해서 동기화를 한 후 Direct Path I/O가 발생하게 됩니다.
+
+왜 Physical I/O 비용이 비싼가?
+많은 DBA들은 Disk I/O 비용이 비싸다는 이야기를 들어왔고, 그들의 사고를 물리적 디스크와 I/O 서브시스템에 집중하도록 받아왔습니다. 물론, 스토리지 레이어는 가장 느린 컴포넌트입니다. 하지만 이것이 느린 이유의 전부는 아닙니다. 나머지 부분은 블록을 SGA(System Global Area)로 적재할때 오라클 내부에서 발생되는 일들 때문입니다.
+
+블록을 SGA로 적재할 때 수많은 일들이 발생합니다. 간단히 말하면, 포그라운드 프로세스는 우선 프리 버퍼 리스트를 검색해야 합니다. 만일 maximum scan limit에 도달했을 때까지도 프리 버퍼를 찾지 못하면, 포그라운드 프로세스는 DBWR 프로세스에게 프리 버퍼를 만들도록 요청합니다. 그런 후, 포그라운드 프로세스는 다시 프리버퍼를 찾습니다. 일단 프리 버퍼를 찾았으면, 프리 리스트 체인(free list chain)에서 해당 블록을 제거한 후, 해당 버퍼를 lru(Least Recently Used:최장시간 미사용) 리스트의 상단 부에 위치시키거나 lru 리스트의 중간 부분에 위치시킵니다.(lru 리스트의 중간 부분에 위치시키는 것을 midpoint insertion이라고 하며, 오라클 8i부터 적용되는 방식) 그런 후 해당 버퍼 헤더의 포인터는 적절하게 조정됩니다. 적어도 2개의 포인터 셋이 있으며, 변경할 때마다 래치를 획득해야 합니다. 블록의 헤더 구조 또한 초기화되고 수정되어야 합니다. 버퍼를 할당하거나, 블록을 버퍼캐쉬로 적재하거나, 블록을 버퍼캐쉬로 적재하는 작업을 완료할때까지 다른 프로세스가 해당 블록을 액세스하는 것을 방지하기 위해 블록 헤더의 특정 bit를 초기화하고 수정해야 합니다.
+결과적으로 db file sequential read와 db file scattered read 대기를 해결할 수 있는 최선의 방법은 Memory I/O와 디스크 I/O의 요청을 줄이는 것입니다. 이것은 애플리케이션과 SQL문 튜닝을 통해 가능합니다. 이제 Disk I/O 비용이 얼마나 비싼지 알았으며, Memory I/O의 비용 또한 비사다는 것을 알게 될 것입니다.
+ 
+
+write complete waits
+
+Server Process들이 DBWR 프로세스에 의해 디스크로 기록 중인 블록을 변경하고자 할 경우에는 변경이 끝날때까지 기다려야 하며, 기다리는 동안 write complete waits 이벤트를 대기합니다.
+write complete waits 대기는 buffer busy waits 대기와 마찬가지로 buffer lock 경합에 의한 대기로 분류할 수 있습니다. DBWR 프로세스는 더티 버퍼를 디스크에 기록하는 동안에 버퍼에 대해 buffer lock을 Exclusive하게 획득합니다. 이때 버퍼를 읽거나 변경하려는 다른 프로세스는 이 작업이 끝나기를 기다려야 하고 그 동안 write complete waits 이벤트를 대기하게 됩니다.
+write complete waits 대기가 보편적으로 나타나는 경우, 애플리케이션의 문제라기 보다는 DBWR 프로세스의 성능 문제일 가능성이 매우 높습니다. 서버 프로세스가 디스크에 기록 중인 버퍼를 읽을 확률이 실제로는 높지 않은데도, 이로 인한 대기를 겪는다는 것은 DBWR 프로세스가 더티 버퍼를 기록하는 시간이 지나치게 길다는 것을 의미합니다. DBWR 프로세스의 성능이 안좋은 이유는 다양하지만 대부분 다음 범주에 속합니다.
+
+* Wait Time
+  1초
+
+* Parameter
+  P1(파일#), P2(블록#), P3(ID(Reason Code))
+ 
+* 일반적인 문제상황 및 대처방안
+  - 원인: DBWR 프로세스의 과도한 작업량(DBWR 프로세스 성능저하)
+  - 진단 방법: FAST_START_MTTR_TARGET 파라미터 값 확인
+                   사용 가능한 SGA 메모리 사이즈 및 버퍼 캐시 사이즈 확인
+  - 개선 방법: FAST_START_MTTR_TARGET 값 증가
+                   다중 버퍼 풀(Multiple buffer pool)의 적절한 사용
+ 
+ 
+FAST_START_MTTR_TARGET과 write complete waits 대기 이벤트
+FAST_START_MTTR_TARGET을 변경하면서 과다한 체크 포인트가 wirte complete waits 대기 및 성능에 어떤 영향을 주는지 테스트해보겠습니다. 테스트 시나리오는 다음과 같습니다.
+ 
+ - 64,000건의 로우를 갖는 CBL_TEST1 ~ CBL_TEST20 테이블을 생성한다.
+ - 동시에 30개의 세션에서 CBL_TEST1 ~ CBL_TEST20 테이블을 각각 업데이트한다.
+ - FAST_START_MTTR_TARGET 값을 1로 주어서 매우 빈번하게 체크 포인트가 발생하도록 한 경우와 체크 포인트의 빈도를 줄이기 위해 값을 600으로 준 경우에 시스템 레벨에서 write complete waits 대기가 얼마나 발생하는지 확인한다.
+ 
+FAST_START_MTTR_TARGET = 600으로 주어서 증분 체크 포인트의 횟수를 줄이면 FAST_START_MTTR_TARGET = 1인 경우에 비해 write complete waits 대기가 크게 줄어들 뿐만 아니라, 그 외 다른 모든 대기 현상들도 전반적으로 적게 발생하는 것을 확인할 수 있습니다. V$SYSSTAT 뷰에서 체크 포인트 관련 통계 값을 조회해보면 잦은 체크 포인트 작업이 대기시간의 차이가 발생했음을 알 수 있습니다. 만일 시스템 전체적으로 데이터 변경 작업이 매우 많아서 체크 포인트에 의한 부하가 생긴다고 판단되면 증분 체크 포인트의 주기를 늘려줌으로써 이문제를 해결할 수 있습니다. 이 경우 복구(Recovery)에 더 많은 시간이 소요될 수 있다는 점을 유의해야 합니다.
+ 
+ 
+(1) FAST_START_MTTR_TARGET=1인 경우
+ 
+-- V$SYSTEM_EVENT를 통해 확인한 write complete waits 대기현상 확인 
+SQL> select *
+from (select event, total_waits, time_waited
+        from v$system_event
+        where wait_class <> 'Idle'
+        order by 3 desc)
+where rownum <= 100;
+ 
+EVENT                                      TOTAL_WAITS              TIME_WAITED
+----------------------------------------- ------------------------ --------------------
+log buffer space                           2440                     81186
+log file switch                            565                      31701
+(private strand flush incomplete)
+free buffer waits                          1367                     14198
+write complete waits                       56                       5334
+log file parallel write                    524                      4964
+buffer busy watis                          133                      2302
+log file switch completion                 120                      2215
+db file sequential read                    8589                     1761
+os thread startup                          47                       1759
+...
+
+-- V$SYSSTAT을 통해 확인한 체크 포인트 관련 통계 값을 확인
+SQL> select name, value from v$sysstat where name like '%checkpoint%';
+
+NAME                                            VALUE
+---------------------------------------------- ----------------------
+physical writes non checkpoint                  16823
+DBWR checkpoint buffers written                 18024
+DBWR thread checkpoint buffers written          4063
+DBWR tablespace checkpoint buffers written      0
+DBWR parallel query checkpoint buffers written  0
+DBWR checkpoints                                7
+background checkpoints started                  4
+background checkpoints completed                3v
+ 
+ 
+(2) FAST_START_MTTR_TARGET=600인 경우
+ 
+-- V$SYSTEM_EVENT를 통해 확인한 write complete waits 대기현상 확인 
+SQL> select *
+from (select event, total_waits, time_waited
+        from v$system_event
+        where wait_class <> 'Idle'
+        order by 3 desc)
+where rownum <= 100;
+
+EVENT                                      TOTAL_WAITS              TIME_WAITED
+----------------------------------------- ------------------------ --------------------
+log buffer space                           2532                     77920
+free buffer watis                          5208                     11624
+log file switch                            93                       6159
+(checkpoint in complete)
+log file switch completion                 235                      5915
+log file parallel write                    319                      4698
+os thread startup                          46                       1658
+write complete waits                       17                       1623
+log file sync                              41                       1554
+latch: cache buffers chains                187                      1452
+...
+ 
+-- V$SYSSTAT을 통해 확인한 체크 포인트 관련 통계 값을 확인.
+SQL> select name, value from v$sysstat where name like '%checkpoint%';
+
+NAME                                            VALUE
+---------------------------------------------- ----------------------
+physical writes non checkpoint                  9661
+DBWR checkpoint buffers written                 2089
+DBWR thread checkpoint buffers written          1989
+DBWR tablespace checkpoint buffers written      0
+DBWR parallel query checkpoint buffers written  0
+DBWR checkpoints                                7
+background checkpoints started                  4
+background checkpoints completed                2
+
+출처: http://12bme.tistory.com/312?category=749950 [길은 가면, 뒤에 있다]

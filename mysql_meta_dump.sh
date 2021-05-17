@@ -46,7 +46,11 @@ ORDER BY TABLE_NAME ASC, INDEX_NAME ASC;
 mysql> notee
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Table meta dump : option -d (nodata)
+=======
+# Table meta dump
+>>>>>>> origin/master
 =======
 # Table meta dump
 >>>>>>> origin/master

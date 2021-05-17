@@ -1,0 +1,26 @@
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+	. ~/.bashrc
+fi
+
+# User specific environment and startup programs
+
+PATH=$PATH:$HOME/.local/bin:$HOME/bin
+
+export PATH
+
+## <Oracle Environment Valuable >
+# userhome/.bash_profile
+export ORACLE_BASE=/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/12.2.0/dbhome_1
+
+# For oracle tools
+export ORACLE_PATH=/home/oracle
+export PATH=$ORACLE_HOME/bin:$ORACLE_HOME/OPatch:$PATH
+export ORACLE_SID=DB_NAME
+export EDITOR=vi
+export NLS_LANG=AMERICAN_AMERICA.AL32UTF8
+export PS1=['\u'@'\h':'$ORACLE_SID':'\W']'\$ '
+

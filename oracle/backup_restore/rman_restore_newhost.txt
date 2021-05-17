@@ -1,0 +1,234 @@
+Restore and Recovery of the Database on a New Host
+
+The procedure described in this section can be used to perform test restores, or to move a production database to a new host.
+
+
+Note:
+If your goal is to perform a test run of the disaster recovery procedures you would use following a real disaster, or to permanently move the target database to the new host, then use the procedure described in this section, which uses the RESTORE and RECOVER commands. 
+Note, however, that the DBID for the restored test database will be the same as the DBID for the original database. If, after the restore and recovery process is complete, you connect to the test database and the recovery catalog, the recovery catalog is updated with information about the test database that can interfere with RMAN's ability to restore and recover the source database.
+
+If your goal is to create a new copy of your target database for ongoing use on a new host, then use the RMAN DUPLICATE command instead of this procedure. DUPLICATE assigns a new DBID to the duplicate database it creates, allowing it to be registered in the same recovery catalog as the original target database. See "Creating a Duplicate Database with RMAN: Overview" for details about duplicating a database.
+
+ 
+Preparing for Restore of a Database to a New Host
+
+To prepare for the restore of the database to a new host, take the following steps:
+
+•Record the DBID for your source database. If you do not know the DBID for your database, see Oracle Database Backup and Recovery Basics for details on ways to determine the DBID.
+
+
+•Make the source database initialization parameter file accessible on the new host. Copy the file from the old host to a new host using an operating system utility.
+
+
+•Make sure backups used for the restore are accessible on the restore host. For example, if the backups were made with a media manager, then make sure the tape device is connected to the new host.
+
+
+
+Note:
+If you perform a test restore only, then do not connect to the recovery catalog when restoring the datafiles. Otherwise, RMAN records information about the restored datafiles to the recovery catalog. This intereferes with future attempts to restore and recover the primary database. If you must use a recovery catalog because the control file is not large enough to contain the RMAN repository data on all of the backups that you need to restore, then export the catalog and import it into a different schema or database and use the copied recovery catalog for the test restore. Otherwise, the catalog considers the restored database as the current target database.  
+
+Testing the Restore of a Database to a New Host: Scenario
+
+This scenario assumes the following:
+
+•Two networked machines, hosta and hostb, are running Linux
+
+
+•A target database named trgta is on hosta and uses a recovery catalog catdb
+
+
+•You want to test the restore and recovery of trgta on hostb, while keeping database trgta up and running on hosta
+
+
+•The directory structure of hostb is different from hosta, so that trgta is located in /net/hosta/dev3/oracle/dbs, but you want to restore the database to /net/hostb/oracle/oradata/test
+
+
+•Database trgta uses a server parameter file (not a client-side initialization parameter file)
+
+
+•The ORACLE_SID for the trgta database is trgta and will not change for the restored database
+
+
+•You have a record of the DBID for trgta
+
+
+•A media manager is accessible by both machines
+
+
+•You have recoverable backups on tape of all datafiles
+
+
+•You have backups of the archived logs required to recover the datafiles
+
+
+•You have control file and server parameter file autobackups on tape
+
+
+Use the following steps to perform the restore process:
+
+Make backups of the target database available to hostb. To test disaster recovery, you need to have a recoverable backup of the target database. When preparing your disaster recovery strategy, ensure that the backups of the datafiles, control files, and server parameter file are restorable on hostb. Hence, you must configure the media management software so that hostb is a media manager client and can read the backup sets created on hosta. Consult the media management vendor for support on this issue.
+
+Configure the ORACLE_SID on hostb. This scenario assumes that you want to authenticate yourself through the operating system, which is much faster than configuring Oracle Net and creating a password file. However, you must be connected to hostb either locally or through a SQLNet alias.
+
+While connected to hostb with administrator privileges, edit the /etc/group file so that you are included: in the DBA group:
+dba:*:614:<your_user_name>
+
+
+Set the ORACLE_SID environment variable on hostb to the same value used on hosta:
+% setenv ORACLE_SID trgta
+
+
+Start RMAN and connect to the target instance without connecting to the recovery catalog.
+% rman TARGET / NOCATALOG
+
+
+Start the instance without mounting it. To start the instance, you first need to set the DBID. (If you do not know the DBID for your database, see Oracle Database Backup and Recovery Basics for details on how to determine the DBID.)
+
+Run SET DBID to set the DBID, then run STARTUP NOMOUNT:
+SET DBID 1340752057;
+STARTUP NOMOUNT
+
+
+RMAN will fail to find the server parameter file, which has not yet been restored, but will start the instance with a "dummy" file. Sample output follows:
+startup failed: ORA-01078: failure in processing system parameters
+LRM-00109: could not open parameter file '/net/hostb/oracle/dbs/inittrgta.ora'
+
+trying to start the Oracle instance without parameter files ...
+Oracle instance started
+
+
+Restore and edit the server parameter file.
+
+Because you enabled the control file autobackup feature when making your backups, the server parameter file is included in the backup sets.
+
+Allocate a channel to the media manager, then restore the server parameter file (SPFILE) as a client-side parameter file (PFILE).
+RUN
+{
+  ALLOCATE CHANNEL c1 DEVICE TYPE sbt PARMS='...';
+  RESTORE SPFILE TO PFILE '?/oradata/test/inittrgta.ora' FROM AUTOBACKUP;
+  SHUTDOWN ABORT;
+}
+
+
+Next, edit the restored PFILE. Change any location-specific parameters, for example, those ending in _DEST and _PATH, to reflect the new directory structure. For example, edit the following parameters:
+  - IFILE
+  - *_DUMP_DEST
+  - LOG_ARCHIVE_DEST*
+  - CONTROL_FILES
+
+
+Then restart the instance, using the edited PFILE:
+STARTUP FORCE NOMOUNT PFILE='?/oradata/test/inittrgta.ora';
+
+
+Restore the control file from an autobackup and then mount the database. RMAN restores the control file to whatever location you specified in the CONTROL_FILES initialization parameter. For example:
+RUN 
+{
+  ALLOCATE CHANNEL c1 DEVICE TYPE sbt PARMS='...';
+  RESTORE CONTROLFILE FROM AUTOBACKUP;
+  ALTER DATABASE MOUNT;
+}
+
+
+Query the database filenames recorded in the control file on the new host (hostb). Because the control file is from the trgta database, the recorded filenames use the original hosta filenames. You can query V$ views to obtain this information. Start a new SQL*Plus session and connect to the newly created instance on hostb:
+% sqlplus '/ AS SYSDBA'
+
+
+Run the following query in SQL*Plus:
+SQL> COLUMN NAME FORMAT a60
+SQL> SPOOL LOG 'db_filenames.out'
+SQL> SELECT FILE# AS "File/Grp#", NAME FROM V$DATAFILE
+     UNION
+     SELECT GROUP#,MEMBER FROM V$LOGFILE;
+SQL> SPOOL OFF
+SQL EXIT
+
+
+Write the RMAN recovery script. The script must include the following steps:
+
+•For each datafile on the destination host that is restored to a different path than it had on the source host, use a SET NEWNAME command to specify the new path on the destination host. (If the file systems on the destination system are set up to have the same paths as the source host, then do not use SET NEWNAME for those files restored to the same path as on the source host.)
+
+
+
+2.For each online redo log that is to be created at a different location than it had on the source host, use SQL ALTER DATABASE RENAME FILE commands to specify the pathname on the destination host. (If the file systems on the destination system are set up to have the same paths as the source host, then do not use ALTER DATABASE RENAME FILE for those files restored to the same path as on the source host.)
+
+
+3.Perform a SET UNTIL to limit media recovery to the end of the archived redo logs.
+
+
+4.Run SWITCH so that the control file recognizes the new path names as the official new names of the datafiles
+
+
+5.Restore and recover the database
+
+For example, consider the following RMAN script to perform these steps, which is contained in text file reco_test.rman:
+RUN
+{
+  # allocate a channel to the tape device
+  ALLOCATE CHANNEL c1 DEVICE TYPE sbt PARMS='...';
+
+  # rename the datafiles and online redo logs
+  SET NEWNAME FOR DATAFILE 1 TO '?/oradata/test/system01.dbf';
+  SET NEWNAME FOR DATAFILE 2 TO '?/oradata/test/undotbs01.dbf';
+  SET NEWNAME FOR DATAFILE 3 TO '?/oradata/test/cwmlite01.dbf';
+  SET NEWNAME FOR DATAFILE 4 TO '?/oradata/test/drsys01.dbf';
+  SET NEWNAME FOR DATAFILE 5 TO '?/oradata/test/example01.dbf';
+  SET NEWNAME FOR DATAFILE 6 TO '?/oradata/test/indx01.dbf';
+  SET NEWNAME FOR DATAFILE 7 TO '?/oradata/test/tools01.dbf';
+  SET NEWNAME FOR DATAFILE 8 TO '?/oradata/test/users01.dbf';
+  SQL "ALTER DATABASE RENAME FILE ''/dev3/oracle/dbs/redo01.log''
+      TO ''?/oradata/test/redo01.log'' ";
+  SQL "ALTER DATABASE RENAME FILE ''/dev3/oracle/dbs/redo02.log''
+      TO ''?/oradata/test/redo02.log'' ";
+
+  # Do a SET UNTIL to prevent recovery of the online logs
+  SET UNTIL SCN 123456;
+  # restore the database and switch the datafile names
+  RESTORE DATABASE;
+  SWITCH DATAFILE ALL;
+
+  # recover the database
+  RECOVER DATABASE;
+}
+EXIT
+
+
+Online logs and datafiles are relocated as specified,
+
+For example, connect and execute the script as shown here:
+% rman TARGET / NOCATALOG
+RMAN> @reco_test.rman
+
+
+RMAN will apply as many of the archived redo logs as it can and leave the database in a state in which is can be opened.
+
+Now perform an OPEN RESETLOGS at the restored database.
+
+
+Caution:
+When you re-open your database in the next step, do not connect to the recovery catalog. Otherwise, the new database incarnation created is registered automatically in the recovery catalog, and the filenames of the production database are replaced by the new filenames specified in the script. 
+If this is a test restore, never connect RMAN to the test-restore database and the recovery catalog.
+
+From the RMAN prompt, open the database with the RESETLOGS option:
+RMAN> ALTER DATABASE OPEN RESETLOGS;
+
+
+If this was a test restore, and it was successful, then you can shut down the test database instance, and delete the test database with all of its files. Use the DROP DATABASE command to delete all files associated with the database automatically.
+
+
+Note:
+If you used an ASM disk group, then DROP DATABASE is the only way to safely remove the files of the test database. If you restored to non-ASM storage then you can also use operating system commands to remove the database.RMAN> SHUTDOWN ABORT
+RMAN> EXIT
+
+
+Remove all test files. You can do this with an operating system utility or in RMAN. For example, in Unix you could perform the procedure this way:
+% rm $ORACLE_HOME/oradata/test/*
+
+
+You can also use RMAN for a procedure that works on all platforms. For example:
+RMAN> STARTUP FORCE NOMOUNT PFILE='?/oradata/test/inittrgta.ora';
+RMAN> DROP DATABASE;
+
+
+Because you did not perform the restore and recovery when connected to the recovery catalog, the recovery catalog contains no records for any of the restored files or the procedures performed during the test. Likewise, the control file of the trgta database is completely unaffected by the test.
+

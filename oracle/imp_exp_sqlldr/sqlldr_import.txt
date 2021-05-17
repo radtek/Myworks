@@ -1,0 +1,71 @@
+-- control file ------------------
+OPTIONS( DIRECT=TRUE, SKIP=1)
+LOAD DATA
+CHARACTERSET UTF8
+INFILE 'FILE_NAME.CSV' "str 'terminator_string'"
+INTO TABLE TABLE_NAME
+TRUNCATE
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+(COLUMN1, COLUMN2, ......)
+-----------------------------------
+
+sqlldr myusername/mypassword  control=controlfile_name log=logfile_name
+
+------------------------------------------------------------------------------------------
+마이그레이션 중 이슈
+------------------------------------------------------------------------------------------------
+
+#오라클 테이블 이름 길이 한계인 30글자 초과로 변경
+DATA INSERT 시 테이블 이름 변경필수
+TBCT_INSR_GENINS_MCLOSE_NPAY_DETAIL -> TBCT_INSR_GENINS_MCLOSE_NPAY_D ( 234 rows errors)
+TBCT_INSR_GENINS_REQ_DETL_MCLOSE -> TBCT_INSR_GENINS_REQ_DETL_MCLO    (5580 rows errors)
+TBCT_INSR_CONSIGN_INJR_INSR_REQ -> TBCT_INSR_CONSIGN_INJR_INSR_RE     (  31 rows errors)
+
+#DATA INSERT 시 TIMESTAMP 형 DATE로 변경
+TMDM_BP_CORP : timestamp -> to_date(value,'YYYY-MM-DD')            (2133 rows errors)
+TMDM_DR_INFO : timestamp -> to_date(value,'YYYY-MM-DD HH24:MI:SS') (6499 rows errors)
+
+#TBCC_FI_DOC_MAP :MSG 컬럼 CR 제거 필요
+EXPORT CSV 시 Line Terminator {EOL}로 설정
+
+#TBCC_IF_FI_DOC_HEADER : E_MSG 컬럼 256자 초과 (Default로 256자 까지 사용가능, 초과시 명시 필요)
+SQLLDR 상에서 DEFAULT 256자인 varchar2를 1000자로 명시 (column length 1000)
+
+-------------------------------------------------------------------------------------------
+Direct NFS (DNFS) Support
+
+SQL*Loader now supports the use of Direct NFS (DNFS) to improve performance 
+when the data being loaded resides on NFS filers. 
+
+DNFS is used by default for files over 1G in size. 
+Explicit control is possible using the DNFS_ENABLE 
+and DNFS_READBUFFERS parameters, with the DNFS_READBUFFERS parameter defaulting to 4.
+
+Create a file called "/nfs/EMP.ctl" with the following contents.
+
+OPTIONS (
+  BADFILE '/nfs/EMP.bad'
+  LOGFILE '/nfs/EMP.log'
+  DNFS_ENABLE TRUE
+  DNFS_READBUFFERS 10
+)
+LOAD DATA
+INFILE '/nfs/EMP.dat'
+INTO TABLE emp2
+TRUNCATE
+FIELDS TERMINATED BY ','
+   (empno,
+    ename,
+    job,
+    mgr,
+    hiredate   DATE "DD-MON-YYYY HH24:MI:SS" ":hiredate",
+    sal,
+    comm,
+    deptno)
+
+
+Run the following SQL*Loader command to load the data into the EMP table, replacing the existing data.
+
+$ cd /nfs
+$ sqlldr userid=scott/tiger@pdb1 control=EMP.ctl

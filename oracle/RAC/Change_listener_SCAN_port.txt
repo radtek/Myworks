@@ -1,0 +1,286 @@
+Changing Listener and SCAN Listener Port in 11gR2 RAC 
+
+
+
+Unlike the previous edition listener port change in RAC doesn't require any database parameter modification. According to Real Application Clusters Installation Guide During Oracle Database creation, the LOCAL_LISTENER parameter is automatically configured to point to the local listener for the database. The Database Agent sets the LOCAL_LISTENER parameter to a connect descriptor that does not require a TNS alias. You can set a value manually for LOCAL_LISTENER. However, Oracle recommends that you leave the parameter unset so that the Database Agent can maintain it automatically. If you set LOCAL_LISTENER, then the Agent does not automatically update this value. If you do not set LOCAL_LISTENER, then the Database Agent automatically keeps the database associated with the Grid home's node listener updated, even as the ports or IP of that listener are changed.
+ Steps below will change the port from the default 1521 to 9120. The configuration is a two node 11gR2 Standard Edition RAC with role separation and the solution for Oracle Security Alert for CVE-2012-1675 applied.
+ 1. Current listener and scan listener configurations (run as grid user)srvctl status listener
+Listener LISTENER is enabled
+Listener LISTENER is running on node(s): db-02,db-01
+
+srvctl config listener
+Name: LISTENER
+Network: 1, Owner: grid
+Home: 
+End points: TCP:1521
+
+$ srvctl status scan_listener
+SCAN Listener LISTENER_SCAN1 is enabled
+SCAN listener LISTENER_SCAN1 is running on node db-02
+SCAN Listener LISTENER_SCAN2 is enabled
+SCAN listener LISTENER_SCAN2 is running on node db-01
+SCAN Listener LISTENER_SCAN3 is enabled
+SCAN listener LISTENER_SCAN3 is running on node db-01
+
+$ srvctl config scan_listener
+SCAN Listener LISTENER_SCAN1 exists. Port: TCP:1521/TCPS:2992
+SCAN Listener LISTENER_SCAN2 exists. Port: TCP:1521/TCPS:2992
+SCAN Listener LISTENER_SCAN3 exists. Port: TCP:1521/TCPS:2992
+The TCPS on 2992 is due to the COST setup and not part of the port change mentioned here.
+ 2. As mentioned earlier (on the RAC installation guide) the local_listener is auto set and current configuration of local_listener is using port 1521SQL> show parameter local
+
+NAME            TYPE    VALUE
+--------------- ------- ------------------------------------------------------------------------------------
+local_listener  string  (DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.100.171)(PORT=1521))))
+The remote listener is restricted to TCPS on the scan vips (again this is due to COST setup.SQL> show parameter remote
+
+NAME            TYPE    VALUE
+--------------- ------- -----------------------------------------------------------------------
+remote_listener  string  (ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCPS)(HOST=192.168.100.181)(PORT=2992))
+                                      (ADDRESS=(PROTOCOL=TCPS)(HOST=192.168.100.182)(PORT=2992))
+                                      (ADDRESS=(PROTOCOL=TCPS)(HOST=192.168.100.183)(PORT=2992)))
+3. The listener.ora in GI_HOME does not contain any port information. Theres endpoints_listener.ora with port information but this is for backward compatibility for DB versions lower than 11.2 and not applicable in this case as DB is 11.2.
+4. Make a note of listener status information which shows where the default port is being used. Run this is as grid user and set ORACLE_HOME variable (ie. . oraenv to +ASM*) if not the command will fail.lsnrctl status listener # on db1
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 12:55:04
+Uptime                    0 days 3 hr. 57 min. 32 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/oracle/diag/tnslsnr/db-01/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.171)(PORT=1521))) <---- vip
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.170)(PORT=1521))) <---- ip
+Services Summary...
+Service "+ASM" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+
+lsnrctl status listener  # on db2
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 12:54:52
+Uptime                    0 days 4 hr. 1 min. 31 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/oracle/diag/tnslsnr/db-02/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.172)(PORT=1521))) <-- vip
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.173)(PORT=1521))) <-- ip
+Services Summary...
+Service "+ASM" has 1 instance(s).
+  Instance "+ASM2", status READY, has 1 handler(s) for this service...
+Scan listener status. It's important to check the status of the scan_listener on the node it's currently active. Use the srvctl status to find out on which node the particular scan listener is currently active.lsnrctl status listener_scan1
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN1)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER_SCAN1
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 12:55:06
+Uptime                    0 days 3 hr. 58 min. 11 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/11.2.0/grid/log/diag/tnslsnr/db-02/listener_scan1/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER_SCAN1)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=192.168.100.181)(PORT=2992)))<-- scan ip with TCPS due to COST
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.181)(PORT=1521))) <-- scan ip with TCP
+Services Summary...
+
+lsnrctl status listener_scan2
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN2)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER_SCAN2
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 12:55:04
+Uptime                    0 days 3 hr. 57 min. 57 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/11.2.0/grid/log/diag/tnslsnr/db-01/listener_scan2/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER_SCAN2)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=192.168.100.182)(PORT=2992))) <-- scan ip with TCPS due to COST
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.182)(PORT=1521))) <-- scan ip with TCP
+Services Summary...
+
+lsnrctl status listener_scan3
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN3)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER_SCAN3
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 12:55:04
+Uptime                    0 days 3 hr. 57 min. 59 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/11.2.0/grid/log/diag/tnslsnr/db-01/listener_scan3/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER_SCAN3)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=192.168.100.183)(PORT=2992))) <-- scan ip with TCPS due to COST
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.183)(PORT=1521))) <-- scan ip with TCP
+Services Summary...
+
+
+
+
+
+ 5. To change the port run srvctl as grid user. 
+ 
+ srvctl modify listener -l LISTENER -p 9120
+
+srvctl config listener
+Name: LISTENER
+Network: 1, Owner: grid
+Home: 
+End points: TCP:9120
+
+srvctl modify scan_listener -p TCP:9120/TCPS:2992
+
+srvctl config scan_listener
+SCAN Listener LISTENER_SCAN1 exists. Port: TCP:9120/TCPS:2992
+SCAN Listener LISTENER_SCAN2 exists. Port: TCP:9120/TCPS:2992
+SCAN Listener LISTENER_SCAN3 exists. Port: TCP:9120/TCPS:2992
+Changes are not effective until the listeners are restarted.
+
+srvctl stop listener
+srvctl start listener
+srvctl stop scan_listener
+srvctl start scan_listener
+
+6. Verify the listeners have picked up the new port. 
+
+lsnrctl status listener_scan1
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN1)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER_SCAN1
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 17:57:47
+Uptime                    0 days 0 hr. 1 min. 21 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/11.2.0/grid/log/diag/tnslsnr/db-02/listener_scan1/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER_SCAN1)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=192.168.100.181)(PORT=2992)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.181)(PORT=9120)))
+Services Summary...
+
+lsnrctl status listener_scan2
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN2)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER_SCAN2
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 17:57:47
+Uptime                    0 days 0 hr. 0 min. 45 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/11.2.0/grid/log/diag/tnslsnr/db-01/listener_scan2/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER_SCAN2)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=192.168.100.182)(PORT=2992)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.182)(PORT=9120)))
+Services Summary...
+
+lsnrctl status listener_scan3
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN3)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER_SCAN3
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 17:57:49
+Uptime                    0 days 0 hr. 0 min. 45 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/11.2.0/grid/log/diag/tnslsnr/db-01/listener_scan3/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER_SCAN3)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=192.168.100.183)(PORT=2992)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.183)(PORT=9120)))
+Services Summary...
+
+lsnrctl status # on db1 and db2
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 11.2.0.3.0 - Production
+Start Date                18-JAN-2013 17:57:31
+Uptime                    0 days 0 hr. 1 min. 54 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /opt/app/11.2.0/grid/network/admin/listener.ora
+Listener Log File         /opt/app/oracle/diag/tnslsnr/db-02/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.171/2)(PORT=9120)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.100.170/3)(PORT=9120)))
+  
+6. The DB's local_listener port is still registered on earler port (only one instance shown below).
+
+SQL> show parameter local
+
+NAME            TYPE    VALUE
+--------------- ------- ------------------------------------------------------------------------------------
+local_listener  string  (DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.100.171)(PORT=1521))))
+Restart the database so local_listener is registered with the new port. 
+Run as oracle USER
+
+srvctl stop database -d std11g2
+srvctl start database -d std11g2
+
+SQL> show parameter local
+
+NAME            TYPE    VALUE
+--------------- ------- ------------------------------------------------------------------------------------
+local_listener  string  (DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.100.171)(PORT=9120))))
+
+7. If COST is not used (refer 11gR2 Grid Infrastructure Single Client Access Name (SCAN) Explained 887522.1 note and section titled "Is it recommended to use COST feature?") then remote_listener value which is by default set as scan-name:port must also be updated with the new port. Since here COST is used (1340831.1) this step is omitted.
+8. Port information on the endpoints_listener.ora would have been automatically edited by the agents and will reflect the new values set. 
+9. Change the port on any tnsnames.ora files used for connectivity to reflect the new port.
+10. EM repository may need recreation with the new port information or manually edit config/emoms.properties and emd/targets.xml with port information.
+
+ Useful metalink notes
+ Changing Default Listener Port Number [ID 359277.1]
+ Listener port changed after 11.2 upgrade [ID 1269679.1]
+ Changing Listener Ports On RAC/EXADATA [ID 1473035.1]
+ 11.2 Scan and Node TNS Listener Setup Examples [ID 1070607.1]
+ How To Configure Scan Listeners With A TCPS Port? [ID 1092753.1]
+ How to Modify SCAN Setting or SCAN Listener Port after Installation [ID 972500.1]
+ How to Configure A Second Listener on a Separate Network in 11.2 Grid Infrastructure [ID 1063571.1]
+ Using the TNS_ADMIN variable and changing the default port number of all Listeners in an 11.2 RAC for an 11.2, 11.1, and 10.2 Database [ID 1306927.1]

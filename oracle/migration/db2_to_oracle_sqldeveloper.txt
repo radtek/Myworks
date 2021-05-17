@@ -1,0 +1,69 @@
+-- 이기종 접속정보 생성 : 별도 드라이버 설치는 도구 > 환경설정 > 데이터베이스 : 타사 JDBC 드라이버에서 추가 (이후 접속정보 생성에 이기종 탭이 생성됨) 
+-- SQL Developer MIGRATIONS 유저로 접속정보 생성 
+create user migrations identified by "migration!23"
+default tablespace USERS 
+temporary tablespace TEMP;
+
+GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW,
+   CREATE PUBLIC SYNONYM, unlimited tablespace TO migrations;
+
+-- 도구(Tools) > 이전(Migration) > 저장소관리(Manage Repository) > 저장소 생성(Create Repository)
+-- MIGRATIONS 접속정보 선택 
+-- (GRANT UNLIMITED TABLESPACE TO 'USERNAME' 이나 ALTER USER 'USERNAME' QUOTA UNLIMITED 'TS_NAME' 이 필요)
+
+-- 이제 저장소(Repository) 유저로 접속하면 하단에 이전 프로젝트(Migration Project) 탭이 나타남 : 보기(View) > 이전 프로젝트(Migration Project) 로 생성가능
+-- 이전 프로젝트 탭에서 프로젝트를 우클릭 > 새 프로젝트 > 저장소 : MIGRATIONS 접속정보 > 프로젝트 이름(MIGTEST), 출력 디렉토리(경로)를 작성 > 완료 (다음으로 진행하지말고 완료)
+-- 프로젝트 이름(MIGTEST)으로 트리메뉴가 생긴다. 출력 디렉토리에는 이관에 필요한 서포트 유저들과 각 오브젝트 스크립트가 생성될 예정
+-- 프로젝트 이름(MIGTEST)을 우클릭 > 캡쳐(MIGRATIONS에 소스 DB 정보가 캡쳐된다.) > 소스 데이터베이스(이기종 접속정보) >  캡쳐 (소스 데이터베이스 이름)
+--                              > 데이터 유형 맵핑 : 변환(이기종 데이터 타입 변환) >  변환할 SQL 객체 선택(잘 안되는듯) > 완료 (다음으로 진행하지말고 완료)
+-- 탭에 '캡쳐된 시간'과 '갭쳐된 데이터베이스 객체'(소스정보), '변환된 데이터베이스 객체'(타입변환된 정보)가 생성됨
+-- '변환된 데이터베이스 객체'를 우클릭 > 대상 생성 > 대상 데이터베이스 (우선 SYS든 SYSTEM이든 CREATE USER가 있으면 된다) > 완료 (다음으로 진행하지말고 완료) 
+-- << 실패함 (프로젝트 생성시 만든 출력 디렉토리에 스크립트는 전부 생성됩)
+-- 유저만 생성되고 실패함 : 'EMULATION', '이기종 DB의 스키마 이름 + _ 가 붙은 유저' (여기서는 USER_ 로 표기)
+-- USER_ 에 테이블스페이스 권한 부족으로 생성실패 (GRANT UNLIMITED TABLESPACE TO 'USERNAME' 이나 ALTER USER 'USERNAME' QUOTA UNLIMITED 'TS_NAME' 이 필요)
+
+-- 스크립트 적용
+-- create user USER_ identified by "USER_" default tablespace USERS temporary tablespace TEMP;
+
+GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW,
+      CREATE PUBLIC SYNONYM, unlimited tablespace TO user_ WITH ADMIN OPTION;
+
+GRANT  ALTER ANY ROLE, ALTER ANY SEQUENCE, ALTER ANY TABLE, ALTER TABLESPACE,
+ALTER ANY TRIGGER, COMMENT ANY TABLE, CREATE ANY SEQUENCE, CREATE ANY TABLE,
+CREATE ANY TRIGGER, CREATE ROLE, CREATE TABLESPACE, CREATE USER, DROP ANY
+SEQUENCE, DROP ANY TABLE, DROP ANY TRIGGER, DROP TABLESPACE, DROP USER, DROP ANY
+ROLE, GRANT ANY ROLE, INSERT ANY TABLE, SELECT ANY TABLE, UPDATE ANY TABLE TO 
+user_;
+
+commit;
+
+-- 적용 후에 다시 변환을 진행하면 정상적으로 DDL문이 반영된다.
+-- DB2의 경우 XML INDEX가 이상하게 반영되는 경향이 있음 : IOT로 생성됨 (오라클이 XML DB가 아니였기에 테스트 불가)
+
+-- 생성된 대상 유저로 접속정보 생성 (보통 패스워드는 유저이름과 같다 EX: USER_ (대문자로 세팅됨) )
+-- 다시 이전 프로젝트(Migration Project)에서 탭으로 내려가 '변환된 데이터베이스 객체' 우클릭 > 데이터이전 > DESTINATION : 대상 유저(USER_) 접속정보로 세팅 > 완료
+-- 데이터 이전은 제약조건을 해제(DISABLE CONSTRAINT)하고 데이터를 이전하기 때문에 여러번 반복하면 제약키(UNIQUE VIOLATION) 위반으로 CONSTRAINT ENABLE 이 실패하게된다. 
+
+-- 문제 : 스크립트에서 하나씩 수정하지 않는한 유저 이름 및 테이블스페이스 변경에 손이간다. (변경하고 master 쿼리를 직접 실행해야함)
+--       대용량 마이그레이션의 경우엔 증분이 가능한지 확인되지않고 유저 및 테이블스페이스 변경을 Export Import로 대체하기엔 부담이 크다.
+--       프로시저나 함수, 패키지의 경우 EXECUTE 권한만 있으면 가져올수 없다. (같은 스키마 내의 오브젝트가 아니므로 당연히..)
+--       도구 > 이전 > 스크래치 편집기 (를 이용해서 변환은 가능)
+
+select --segment_name,
+sum(bytes)/1024/1024 MB
+ from dba_segments
+ where owner = 'USER_';
+ --group by SEGMENT_NAME
+-- order by 2 DESC;
+
+-- MIGRATIONS 유저는 오브젝트를 메타정보화 시켜서 저장하고 캡쳐/변환하는 역할. 주로 DDL 문에 연관되어 있기때문에 용량은 적게 사용한다.
+-- EMULATION 유저는 SQL변환을 위한 기능을 가지고 있고 프로시저, 패키지 등을 변환하는것으로 보임
+-- 수동으로 스크래치 편집기로 변환도 가능해 보임 (환경상 테스트해보지 못함)
+
+-- 삭제
+drop user migrations cascade;
+drop user emulation cascade;
+drop user user_ cascade;
+
+commit;
+purge DBA_RECYCLEBIN;
