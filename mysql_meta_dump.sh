@@ -47,7 +47,11 @@ mysql> notee
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Table meta dump : option -d (nodata)
+=======
+# Table meta dump
+>>>>>>> origin/master
 =======
 # Table meta dump
 >>>>>>> origin/master
