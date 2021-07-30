@@ -26,6 +26,23 @@ func readLines(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
+<<<<<<< HEAD
+=======
+func writeLines(lines []string, path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	w := bufio.NewWriter(file)
+	for _, line := range lines {
+		fmt.Fprintln(w, line)
+	}
+	return w.Flush()
+}
+
+>>>>>>> b8469a099ade00740ce6a0c8de3e478bd26affef
 type genTable struct {
 	schema, table_name, table_comment, option,
 	column, datatype, defval, nullable, col_comment, pk []string
@@ -101,11 +118,17 @@ func (gt *genTable) generate() {
 			fmt.Fprintln(w, gt.option[tabstart], ";")
 			fmt.Fprintln(w, "COMMENT ON TABLE", gt.schema[tabstart]+"."+gt.table_name[tabstart], "IS '"+gt.table_comment[tabstart]+"';")
 
+<<<<<<< HEAD
 			ts = tabstart
 
 			for ts < rows+1 {
 				fmt.Fprintln(w, "COMMENT ON COLUMN", gt.schema[tabstart]+"."+gt.table_name[tabstart]+"."+gt.column[ts], "IS '"+gt.col_comment[ts]+"';")
 				ts++
+=======
+			for tabstart < rows+1 {
+				fmt.Fprintln(w, "COMMENT ON COLUMN", gt.schema[tabstart]+"."+gt.table_name[tabstart]+"."+gt.column[tabstart], "IS '"+gt.col_comment[tabstart]+"';")
+				tabstart++
+>>>>>>> b8469a099ade00740ce6a0c8de3e478bd26affef
 			}
 		} else {
 			fmt.Fprintf(w, ", ")
@@ -119,7 +142,11 @@ func main() {
 	var filename string
 	filename = "tables.dat"
 
+<<<<<<< HEAD
 	flog, err := os.OpenFile("error.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+=======
+	flog, err := os.OpenFile("debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+>>>>>>> b8469a099ade00740ce6a0c8de3e478bd26affef
 	if err != nil {
 		log.Println(err)
 	}
@@ -134,5 +161,17 @@ func main() {
 	gts := new(genTable)
 	gts.collect(lines)
 	gts.generate()
+<<<<<<< HEAD
 
+=======
+	//
+
+	// for i, line := range lines {
+	// 	fmt.Fprintln(i, line)
+	// }
+
+	// if err := writeLines(lines, "generated_ddl.sql"); err != nil {
+	// 	log.Fatalf("writeLines: %s", err)
+	// }
+>>>>>>> b8469a099ade00740ce6a0c8de3e478bd26affef
 }
