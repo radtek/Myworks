@@ -54,6 +54,10 @@ func (gt *genTable) collect(lines []string) *genTable {
 	return gt
 }
 
+func (gt *genTable) check() {
+
+}
+
 func (gt *genTable) generate() {
 	var nullcnt, tabstart int
 
@@ -90,6 +94,8 @@ func (gt *genTable) generate() {
 			} else {
 				fmt.Fprintln(w, gt.column[rows], "\t", gt.datatype[rows], "\t", gt.defval[rows], "\t")
 			}
+		} else {
+			log.Println("Warning - Line No.", rows, ": Column ID is empty!")
 		}
 		if len(gt.table_name) == rows+1 || gt.table_name[rows] != gt.table_name[rows+1] {
 			ts := tabstart
