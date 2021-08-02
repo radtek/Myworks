@@ -31,7 +31,7 @@ type genTable struct {
 	column, datatype, defval, nullable, col_comment, pk []string
 }
 
-func (gt *genTable) collect(lines []string) *genTable {
+func (gt *genTable) Collect(lines []string) *genTable {
 	for _, line := range lines {
 		delimit := regexp.MustCompile(`/`)
 		sp := delimit.Split(line, -1)
@@ -53,12 +53,78 @@ func (gt *genTable) collect(lines []string) *genTable {
 
 	return gt
 }
+func ck_datatype(dt string) bool {
+	rep := regexp.MustCompile(`\s+`)
+	sdt := strings.Split(strings.ToUpper(rep.ReplaceAllString(dt, "")), "(")
+	curdt := sdt[0]
 
-func (gt *genTable) check() {
+	if curdt == "CHAR" || curdt == "VARCHAR2" || curdt == "NCHAR" || curdt == "NVARCHAR" || curdt == "LONG" || curdt == "CLOB" || curdt == "NCLOB" || curdt == "NUMBER" || curdt == "FLOAT" || curdt == "BINARY_FLOAT" || curdt == "BINARY_DOUBLE" || curdt == "DATE" || curdt == "TIMESTAMP" || curdt == "BLOB" || curdt == "BFILE" {
+		return true
+	} else {
+		return false
+	}
 
 }
+func (gt *genTable) Check() {
+	var errcnt int = 0
+	var tabstart int
 
-func (gt *genTable) generate() {
+	log.Println("Check Process Start -------------------------------------------------------------")
+
+	for rows := range gt.column {
+		if rows == 0 || gt.table_name[rows-1] != gt.table_name[rows] {
+			tabstart = rows
+		}
+		rep := regexp.MustCompile(`\s+`)
+		curtab := rep.ReplaceAllString(gt.table_name[rows], "")
+
+		if curtab == "" {
+			log.Println("Critical - line NO.", rows+1, ": Has empty Table id. Please check.")
+			errcnt = errcnt + 1
+
+		}
+		err := ck_datatype(gt.datatype[rows])
+		if err == false {
+			log.Println("Critical - line NO.", rows+1, ": Datatype not valid. Please check.")
+			errcnt = errcnt + 1
+		}
+		if len(gt.table_name) == rows+1 || gt.table_name[rows] != gt.table_name[rows+1] {
+			tabbegin := tabstart
+
+			for tabbegin < rows+1 {
+				var dupcnt int = 0
+				ts := tabstart
+				curcol := rep.ReplaceAllString(gt.column[tabbegin], "")
+				//fmt.Println("curcol : ", curcol)
+
+				for ts < rows+1 {
+					cpcol := rep.ReplaceAllString(gt.column[ts], "")
+					//fmt.Println("cpcol :", cpcol)
+
+					if curcol == cpcol {
+						dupcnt = dupcnt + 1
+						//fmt.Println(dupcnt)
+
+						if dupcnt > 1 {
+							log.Println("Critical - Line No.", tabbegin+1, "-", ts+1, ": Column -'"+curcol+"' has same name in Table '"+gt.table_name[tabbegin]+"'. Please check.")
+							errcnt = errcnt + 1
+						}
+					}
+					ts++
+				}
+				tabbegin++
+			}
+		}
+
+	}
+	if errcnt > 0 {
+		log.Fatal("Tables or Datatypes were not valid. Please check error.log.")
+	} else {
+		log.Println("Check Complete, Start Generate -------------------------------------------------------")
+	}
+}
+
+func (gt *genTable) Generate() {
 	var nullcnt, tabstart int
 
 	file, err := os.Create("DDL_GEN.sql")
@@ -155,7 +221,8 @@ func main() {
 	}
 
 	gts := new(genTable)
-	gts.collect(lines)
-	gts.generate()
+	gts.Collect(lines)
+	gts.Check()
+	gts.Generate()
 
 }
