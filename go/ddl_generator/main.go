@@ -161,7 +161,7 @@ func (gt *genTable) Generate() {
 				fmt.Fprintln(w, gt.column[rows], "\t", gt.datatype[rows], "\t", gt.defval[rows], "\t")
 			}
 		} else {
-			log.Println("Warning - Line No.", rows, ": Column ID is empty!")
+			log.Println("Warning - Line No.", rows, ": Excluded in Table Creation, Cause Column ID was EMPTY!")
 		}
 		if len(gt.table_name) == rows+1 || gt.table_name[rows] != gt.table_name[rows+1] {
 			ts := tabstart
