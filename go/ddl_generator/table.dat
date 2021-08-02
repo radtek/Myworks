@@ -1,0 +1,19 @@
+# header : 논리TableName/물리TableName/논리 Column Name/Column ID/PK/DataType/Defval/Nullable/Owner Schema/Create Option
+월마감보상담보/XTE40011/마감년월/CLG_YM/Y/VARCHAR2(6)//NOT NULL/A1A12222/CACHE PARALLEL
+월마감보상담보/XTE40011/지급구분코드/PYN_DVCD/Y/VARCHAR2(1)//NOT NULL//
+월마감보상담보/XTE40011/사고접수번호/ACCD_RPT_NO/Y/VARCHAR2(12)//NOT NULL//
+월마감보상담보/XTE40011/사고목적구분코드/ACCD_OJ_DVCD/Y/VARCHAR2(2)//NOT NULL//
+월마감보상담보/XTE40011/사고목적서열/ACCD_OJ_RNK//VARCHAR2(3)////
+월마감보상담보/XTE40011/사고목적추산결정일련번호/ACCD_OJ_OST_DS_SQNO//NUMBER(10,0)////
+월마감보상담보/XTE40011/계약일련번호/CTC_SQNO//NUMBER(10,0)////
+월마감보상담보/XTE40011/차감지급금액/SUBT_PYN_AMT//NUMBER(15,2)/DEFAULT  0///
+월마감일반지급처/XTE40012/마감년월/CLG_YM/Y/VARCHAR2(6)//NOT NULL/A1A12222/CACHE PARALLEL
+월마감일반지급처/XTE40012/지급구분코드/PYN_DVCD/Y/VARCHAR2(1)//NOT NULL//
+월마감일반지급처/XTE40012/사고접수번호/ACCD_RPT_NO/Y/VARCHAR2(12)//NOT NULL//
+월마감일반지급처/XTE40012/사고목적구분코드/ACCD_OJ_DVCD/Y/VARCHAR2(2)//NOT NULL//
+월마감일반지급처/XTE40012/사고목적서열/ACCD_OJ_RNK//VARCHAR2(3)////
+월마감일반지급처/XTE40012/사고목적추산결정일련번호/ACCD_OJ_OST_DS_SQNO//NUMBER(10,0)////
+월마감일반지급처/XTE40012/계약일련번호/CTC_SQNO//NUMBER(10,0)////
+월마감일반지급처/XTE40012/소재지일련번호/LCPL_SQNO//NUMBER(10,0)////
+월마감일반지급처/XTE40012/지급일련번호/PYN_SQNO//NUMBER(10,0)////
+월마감일반지급처/XTE40012/ETL적재일시/ETL_LD_DTTM//TIMESTAMP////
