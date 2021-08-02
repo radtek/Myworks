@@ -1,19 +1,62 @@
-# header : 논리TableName/물리TableName/논리 Column Name/Column ID/PK/DataType/Defval/Nullable/Owner Schema/Create Option
-월마감보상담보/XTE40011/마감년월/CLG_YM/Y/VARCHAR2(6)//NOT NULL/A1A12222/CACHE PARALLEL
-월마감보상담보/XTE40011/지급구분코드/PYN_DVCD/Y/VARCHAR2(1)//NOT NULL//
-월마감보상담보/XTE40011/사고접수번호/ACCD_RPT_NO/Y/VARCHAR2(12)//NOT NULL//
-월마감보상담보/XTE40011/사고목적구분코드/ACCD_OJ_DVCD/Y/VARCHAR2(2)//NOT NULL//
-월마감보상담보/XTE40011/사고목적서열/ACCD_OJ_RNK//VARCHAR2(3)////
-월마감보상담보/XTE40011/사고목적추산결정일련번호/ACCD_OJ_OST_DS_SQNO//NUMBER(10,0)////
-월마감보상담보/XTE40011/계약일련번호/CTC_SQNO//NUMBER(10,0)////
-월마감보상담보/XTE40011/차감지급금액/SUBT_PYN_AMT//NUMBER(15,2)/DEFAULT  0///
-월마감일반지급처/XTE40012/마감년월/CLG_YM/Y/VARCHAR2(6)//NOT NULL/A1A12222/CACHE PARALLEL
-월마감일반지급처/XTE40012/지급구분코드/PYN_DVCD/Y/VARCHAR2(1)//NOT NULL//
-월마감일반지급처/XTE40012/사고접수번호/ACCD_RPT_NO/Y/VARCHAR2(12)//NOT NULL//
-월마감일반지급처/XTE40012/사고목적구분코드/ACCD_OJ_DVCD/Y/VARCHAR2(2)//NOT NULL//
-월마감일반지급처/XTE40012/사고목적서열/ACCD_OJ_RNK//VARCHAR2(3)////
-월마감일반지급처/XTE40012/사고목적추산결정일련번호/ACCD_OJ_OST_DS_SQNO//NUMBER(10,0)////
-월마감일반지급처/XTE40012/계약일련번호/CTC_SQNO//NUMBER(10,0)////
-월마감일반지급처/XTE40012/소재지일련번호/LCPL_SQNO//NUMBER(10,0)////
-월마감일반지급처/XTE40012/지급일련번호/PYN_SQNO//NUMBER(10,0)////
-월마감일반지급처/XTE40012/ETL적재일시/ETL_LD_DTTM//TIMESTAMP////
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;종료시간 ;END_TM;;VARCHAR2(20); ;NOT NULL;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;주기 ;INTERVALS;;NUMBER(10); ;NOT NULL;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;결과 코드 ;RESULT_CD;;VARCHAR2(50); ;NOT NULL;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;package_nm ;PACKAGE_NM;;VARCHAR2(100); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;platform_cd ;PLATFORM_CD;;VARCHAR2(50); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;버전 명 ;VERSION_NM;;VARCHAR2(50); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;사용자 번호 ;USER_NO;;NUMBER(20); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;오류 상세 ;ERROR_DTL;;VARCHAR2(2000); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;요청 ;REQUESTS;;VARCHAR2(2000); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;responses ;RESPONSES;;VARCHAR2(2000); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;로그 년도 ;LOG_YEAR;;VARCHAR2(4); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;로그 월 ;LOG_MONTH;;VARCHAR2(2); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;로그 일자 ;LOG_DATE;;VARCHAR2(2); ;;CPG_PDA;
+miaps_device_log_history;MIAPS_DEVICE_LOG_HISTORY;로그 일시 ;LOGDATETIME;;DATE; getdate();;CPG_PDA;
+miaps_dist_file_part;MIAPS_DIST_FILE_PART;파일 경로 ;FILE_PATH;Y;VARCHAR2(250); ;NOT NULL;CPG_PDA;
+miaps_dist_file_part;MIAPS_DIST_FILE_PART;파일 순번 ;FILE_SEQ;Y;NUMBER(10); ;NOT NULL;CPG_PDA;
+miaps_dist_file_part;MIAPS_DIST_FILE_PART;파일 내용 ;FILE_CONTENTS;;BLOB; ;;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;파일 경로 ;FILE_PATH;Y;VARCHAR2(250); ;NOT NULL;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;프로그램명 ;APP_NM;;VARCHAR2(250); ;NOT NULL;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;폴더 명 ;FOLDER_NM;;VARCHAR2(250); ;;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;up_folder_nm ;UP_FOLDER_NM;;VARCHAR2(250); ;;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;파일 명 ;FILE_NM;;VARCHAR2(250); ;NOT NULL;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;파일 일자 ;FILE_DT;;VARCHAR2(15); ;NOT NULL;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;파일 순번 ;FILE_SIZE;;NUMBER(10); ;NOT NULL;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;part_cnt ;PART_CNT;;NUMBER(10); ;NOT NULL;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;수정일자 ;UPD_DT;;VARCHAR2(14); ;;CPG_PDA;
+miaps_dist_files;MIAPS_DIST_FILES;사용자 명 ;USER_NM;;VARCHAR2(250); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;account_id ;ACCOUNT_ID;Y;NUMBER(20); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;사용자 번호 ;USER_NO;;NUMBER(20); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;기본 매일 ;DEFAULT_MAIL;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;ms_login ;MS_LOGIN;;VARCHAR2(50); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;ms_password ;MS_PASSWORD;;VARCHAR2(50); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;ms_address ;MS_ADDRESS;;VARCHAR2(200); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;push ;PUSH;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;매일서버ID ;MAILSERVER_ID;;VARCHAR2(20); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;서버 유형 ;SERVER_TYPE;;VARCHAR2(20); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;설명 ;DESCRIPTION;;VARCHAR2(200); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;protocol ;PROTOCOL;;VARCHAR2(10); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;out_server ;OUT_SERVER;;VARCHAR2(30); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;out_port ;OUT_PORT;;NUMBER(10); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;out_auth ;OUT_AUTH;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;sslout ;SSLOUT;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;in_server ;IN_SERVER;;VARCHAR2(30); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;in_port ;IN_PORT;;NUMBER(10); ;NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;sslin ;SSLIN;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;inbox_name ;INBOX_NAME;;VARCHAR2(30); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;inbox_active ;INBOX_ACTIVE;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;outbox_name ;OUTBOX_NAME;;VARCHAR2(30); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;outbox_active ;OUTBOX_ACTIVE;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;sent_name ;SENT_NAME;;VARCHAR2(30); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;sent_active ;SENT_ACTIVE;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;drafts_name ;DRAFTS_NAME;;VARCHAR2(30); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;drafts_active ;DRAFTS_ACTIVE;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;trash_name ;TRASH_NAME;;VARCHAR2(30); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;trash_active ;TRASH_ACTIVE;;VARCHAR2(1); 'N';NOT NULL;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;out_login ;OUT_LOGIN;;VARCHAR2(50); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;out_password ;OUT_PASSWORD;;VARCHAR2(50); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;last_watch_time ;LAST_WATCH_TIME;;NUMBER(20); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;생성 번호 ;REG_NO;;NUMBER(20); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;생성 일자 ;REG_DT;;VARCHAR2(14); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;수정자 ;UPD_NO;;NUMBER(20); ;;CPG_PDA;
+miaps_email_account;MIAPS_EMAIL_ACCOUNT;수정일자 ;UPD_DT;;VARCHAR2(14); ;;CPG_PDA;

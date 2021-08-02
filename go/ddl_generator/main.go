@@ -31,12 +31,12 @@ type genTable struct {
 	column, datatype, defval, nullable, col_comment, pk []string
 }
 
-func (gt *genTable) Collect(lines []string) *genTable {
+func (gt *genTable) Collect(lines []string, del string) *genTable {
 	for _, line := range lines {
-		delimit := regexp.MustCompile(`/`)
+		delimit := regexp.MustCompile(del)
 		sp := delimit.Split(line, -1)
-		//fmt.Fprintln(line)
-		//fmt.Fprintln(sp[1])
+		//fmt.Println(line)
+		//fmt.Println(sp[1])
 
 		gt.table_comment = append(gt.table_name, sp[0])
 		gt.table_name = append(gt.table_name, sp[1])
@@ -85,7 +85,7 @@ func (gt *genTable) Check() {
 		}
 		err := ck_datatype(gt.datatype[rows])
 		if err == false {
-			log.Println("Critical - line NO.", rows+1, ": Datatype not valid. Please check.")
+			log.Println("Critical - line NO.", rows+1, ": ", gt.datatype[rows], "Datatype not valid. Please check.")
 			errcnt = errcnt + 1
 		}
 		if len(gt.table_name) == rows+1 || gt.table_name[rows] != gt.table_name[rows+1] {
@@ -206,6 +206,15 @@ func (gt *genTable) Generate() {
 
 func main() {
 	var filename string
+	var del string
+
+	fmt.Print("DDL_Generator --------------------------------------------",
+		"\n 2021/08/02 -----------------------------------------------",
+		"\n\n\n	Insert Delimiter : (Default = , )")
+	fmt.Scanln(&del)
+	if del == "" {
+		del = ","
+	}
 	filename = "tables.dat"
 
 	flog, err := os.OpenFile("error.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -221,7 +230,7 @@ func main() {
 	}
 
 	gts := new(genTable)
-	gts.Collect(lines)
+	gts.Collect(lines, del)
 	gts.Check()
 	gts.Generate()
 
