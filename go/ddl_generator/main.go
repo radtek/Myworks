@@ -37,18 +37,25 @@ func (gt *genTable) Collect(lines []string, del string) *genTable {
 		sp := delimit.Split(line, -1)
 		//fmt.Println(line)
 		//fmt.Println(sp[1])
-
-		gt.table_comment = append(gt.table_name, sp[0])
-		gt.table_name = append(gt.table_name, sp[1])
-		gt.col_comment = append(gt.col_comment, sp[2])
-		gt.column = append(gt.column, sp[3])
-		gt.pk = append(gt.pk, sp[4])
-		gt.datatype = append(gt.datatype, sp[5])
-		gt.defval = append(gt.defval, sp[6])
-		gt.nullable = append(gt.nullable, sp[7])
-		gt.schema = append(gt.schema, sp[8])
-		gt.option = append(gt.option, sp[9])
-
+		splen := len(sp)
+		if splen == 10 {
+			gt.table_comment = append(gt.table_name, sp[0])
+			gt.table_name = append(gt.table_name, sp[1])
+			gt.col_comment = append(gt.col_comment, sp[2])
+			gt.column = append(gt.column, sp[3])
+			gt.pk = append(gt.pk, sp[4])
+			gt.datatype = append(gt.datatype, sp[5])
+			gt.defval = append(gt.defval, sp[6])
+			gt.nullable = append(gt.nullable, sp[7])
+			gt.schema = append(gt.schema, sp[8])
+			gt.option = append(gt.option, sp[9])
+		} else if splen < 2 {
+			log.Fatalln("Critical - Delimiter not matched with data file.")
+		} else if splen > 10 {
+			log.Fatalln("Critical - Field Exceeded, Some field may has delimiter. Check data.")
+		} else {
+			log.Fatalln("Critical - Field Saperate unnomally, Check Delimiter and Datafile.")
+		}
 	}
 
 	return gt
@@ -69,7 +76,7 @@ func (gt *genTable) Check() {
 	var errcnt int = 0
 	var tabstart int
 
-	log.Println("Check Process Start -------------------------------------------------------------")
+	log.Println("■■ Check Process Start ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■")
 
 	for rows := range gt.column {
 		if rows == 0 || gt.table_name[rows-1] != gt.table_name[rows] {
@@ -122,7 +129,7 @@ func (gt *genTable) Check() {
 	if errcnt > 0 {
 		log.Fatal("Tables or Datatypes were not valid. Please check error.log.")
 	} else {
-		log.Println("Check Complete, Start Generate -------------------------------------------------------")
+		log.Println("■■ Check Complete, Start Generate ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■")
 	}
 }
 
@@ -140,9 +147,9 @@ func (gt *genTable) Generate() {
 	for rows := range gt.column {
 		if rows == 0 || gt.table_name[rows-1] != gt.table_name[rows] {
 
-			fmt.Fprint(w, "\n\n\n------------------------------------------------------------------------",
+			fmt.Fprint(w, "\n\n\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 				"\n--", gt.schema[rows]+"."+gt.table_name[rows], "\t", gt.table_comment[rows],
-				"\n------------------------------------------------------------------------\n")
+				"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■\n")
 			fmt.Fprintln(w, "CREATE TABLE ", gt.schema[rows]+"."+gt.table_name[rows], " (")
 			nullcnt = 0
 			tabstart = rows
@@ -210,13 +217,19 @@ func main() {
 	var filename string
 	var del string
 
-	fmt.Print("DDL_Generator --------------------------------------------",
-		"\n 2021/08/02 -----------------------------------------------",
-		"\n\n\n	Insert Delimiter : (Default = , )")
+	fmt.Print("",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■ DDL_Generator ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■ 2021/08/02    ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n\n\nInsert Delimiter : (Default = , )")
 	fmt.Scanln(&del)
 	if del == "" {
 		del = ","
 	}
+	fmt.Print("",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n")
 	filename = "tables.dat"
 
 	flog, err := os.OpenFile("error.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -236,4 +249,7 @@ func main() {
 	gts.Check()
 	gts.Generate()
 
+	fmt.Print("Generate Done.",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n")
 }
