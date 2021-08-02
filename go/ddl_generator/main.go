@@ -106,7 +106,9 @@ func (gt *genTable) Check() {
 						//fmt.Println(dupcnt)
 
 						if dupcnt > 1 {
-							log.Println("Critical - Line No.", tabbegin+1, "-", ts+1, ": Column -'"+curcol+"' has same name in Table '"+gt.table_name[tabbegin]+"'. Please check.")
+							if tabbegin != ts {
+								log.Println("Critical - Line No.", tabbegin+1, ",", ts+1, ": Column -'"+curcol+"' has same name in Table '"+gt.table_name[tabbegin]+"'. Please check.")
+							}
 							errcnt = errcnt + 1
 						}
 					}
