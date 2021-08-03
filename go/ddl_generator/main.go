@@ -70,13 +70,12 @@ func ck_datatype(dt string) bool {
 	} else {
 		return false
 	}
-
 }
 func (gt *genTable) Check() {
 	var errcnt int = 0
 	var tabstart int
 
-	log.Println("■■ Check Process Start ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■")
+	log.Println("■■ Check Process Start  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■")
 
 	for rows := range gt.column {
 		if rows == 0 || gt.table_name[rows-1] != gt.table_name[rows] {
@@ -129,7 +128,7 @@ func (gt *genTable) Check() {
 	if errcnt > 0 {
 		log.Fatal("Tables or Datatypes were not valid. Please check error.log.")
 	} else {
-		log.Println("■■ Check Complete, Start Generate ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■")
+		log.Println("■■ Check Complete, Start Generate ■■■■■■■■■■■■■■■■■■■■■■■■■■")
 	}
 }
 
@@ -157,18 +156,25 @@ func (gt *genTable) Generate() {
 
 		rep := regexp.MustCompile(`\s+`)
 		curcol := rep.ReplaceAllString(gt.column[rows], "")
-		if curcol != "" {
+		curdef := rep.ReplaceAllString(gt.defval[rows], "")
 
+		if curcol != "" {
+			fmt.Fprint(w, gt.column[rows], "\t", gt.datatype[rows], "\t")
+			if curdef != "" {
+				fmt.Fprint(w, "DEFAULT ", gt.defval[rows], "\t")
+			}
 			if gt.nullable[rows] == "NOT NULL" {
 				nullcnt = nullcnt + 1
 				nullstr := strconv.Itoa(nullcnt)
 				if len(nullstr) < 2 {
 					nullstr = "0" + nullstr
 				}
-				fmt.Fprintln(w, gt.column[rows], "\t", gt.datatype[rows], "\t", gt.defval[rows], "\t", "CONSTRAINT CK_"+gt.table_name[rows]+"_"+nullstr, gt.nullable[rows])
+
+				fmt.Fprint(w, "CONSTRAINT CK_"+gt.table_name[rows]+"_"+nullstr, "\t", gt.nullable[rows], "\n")
 			} else {
-				fmt.Fprintln(w, gt.column[rows], "\t", gt.datatype[rows], "\t", gt.defval[rows], "\t")
+				fmt.Fprint(w, "\n")
 			}
+
 		} else {
 			log.Println("Warning - Line No.", rows, ": Excluded in Table Creation, Cause Column ID was EMPTY!")
 		}
@@ -218,17 +224,17 @@ func main() {
 	var del string
 
 	fmt.Print("",
-		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
-		"\n■■ DDL_Generator ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
-		"\n■■ 2021/08/02    ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
-		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■ DDL_Generator  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■ 2021/08/02     ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 		"\n\n\nInsert Delimiter : (Default = , )")
 	fmt.Scanln(&del)
 	if del == "" {
 		del = ","
 	}
 	fmt.Print("",
-		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 		"\n")
 	filename = "tables.dat"
 
@@ -249,7 +255,8 @@ func main() {
 	gts.Check()
 	gts.Generate()
 
-	fmt.Print("Generate Done.",
-		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+	fmt.Print("■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+		"\nGenerate Done.",
+		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 		"\n")
 }
