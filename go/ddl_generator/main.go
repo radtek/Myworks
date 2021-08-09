@@ -228,15 +228,19 @@ func main() {
 		"\n■■ DDL_Generator  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 		"\n■■ 2021/08/02     ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
-		"\n\n\nInsert Delimiter : (Default = , )")
+		"\n\n\nInsert Delimiter : (Default = , ) ")
 	fmt.Scanln(&del)
 	if del == "" {
 		del = ","
 	}
+	fmt.Print("\nInsert Data Filename : (Default = tables.dat ) ")
+	fmt.Scanln(&filename)
+	if filename == "" {
+		filename = "tables.dat"
+	}
 	fmt.Print("",
 		"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 		"\n")
-	filename = "tables.dat"
 
 	flog, err := os.OpenFile("error.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
