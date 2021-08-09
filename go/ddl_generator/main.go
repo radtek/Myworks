@@ -39,7 +39,7 @@ func (gt *genTable) Collect(lines []string, del string) *genTable {
 		//fmt.Println(sp[1])
 		splen := len(sp)
 		if splen == 10 {
-			gt.table_comment = append(gt.table_name, sp[0])
+			gt.table_comment = append(gt.table_comment, sp[0])
 			gt.table_name = append(gt.table_name, sp[1])
 			gt.col_comment = append(gt.col_comment, sp[2])
 			gt.column = append(gt.column, sp[3])
@@ -146,9 +146,9 @@ func (gt *genTable) Generate() {
 	for rows := range gt.column {
 		if rows == 0 || gt.table_name[rows-1] != gt.table_name[rows] {
 
-			fmt.Fprint(w, "\n\n\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
+			fmt.Fprint(w, "\n\n\n--■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■",
 				"\n--", gt.schema[rows]+"."+gt.table_name[rows], "\t", gt.table_comment[rows],
-				"\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■\n")
+				"\n--■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■\n")
 			fmt.Fprintln(w, "CREATE TABLE ", gt.schema[rows]+"."+gt.table_name[rows], " (")
 			nullcnt = 0
 			tabstart = rows
