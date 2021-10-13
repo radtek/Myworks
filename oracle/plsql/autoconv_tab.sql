@@ -7,6 +7,7 @@ ASIS_TEXT CLOB,
 CONV_TEXT CLOB,
 INSDATE DATE DEFAULT SYSDATE,
 RET_CONV CLOB,
+LAST_HANDLE VARCHAR2(100) DEFAULT '('||USER||') '||SYS_CONTEXT('USERENV','OS_USER'),
 CONSTRAINT PK_METACONV PRIMARY KEY(SEQ)
 );
 COMMENT ON TABLE ORADEF.METACONV IS '메타 컬럼 자동변환용';
@@ -15,6 +16,7 @@ COMMENT ON COLUMN ORADEF.METACONV.ASIS_TEXT IS '기존 쿼리문 텍스트';
 COMMENT ON COLUMN ORADEF.METACONV.CONV_TEXT IS '컨버전 된 전환 텍스트';
 COMMENT ON COLUMN ORADEF.METACONV.INSDATE IS 'INSERT 된 날짜';
 COMMENT ON COLUMN ORADEF.METACONV.RET_CONV IS '전환 결과';
+COMMENT ON COLUMN ORADEF.METACONV.LAST_HANDLE IS '프로시저 실행자';
 */
 
 -- Column Replace Procedure
@@ -62,14 +64,24 @@ DECLARE
     deftabs     deflist;
     queries     origlist;
     bufferarr   sys.odcivarchar2list;
+    nodata      EXCEPTION;
 
 BEGIN -- PROCEDURE START ------------------------------------------------------------------------------------------
- 
+
+    -- Regular Expression Pattern
+    frompatt := 'FROM\s+([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
+    orapattern := '\s*?,\s*?([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
+    joinpattern := 'JOIN\s+([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
+
     -- Get data ---------------------------------------------------------------------------------------------------
     SELECT SEQ, ASIS_TEXT 
     BULK COLLECT INTO queries 
     FROM ORADEF.TB_METACONV 
     WHERE CONV_TEXT IS NULL; 
+
+    IF queries.count = 0 THEN
+        raise nodata; 
+    END IF;
 
     FOR idx IN queries.FIRST .. queries.LAST -- GET queries
     LOOP
@@ -79,10 +91,6 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
         outcount := 1;
         jptcount := 0 ;
         query := queries(idx).texts;
-        -- Regular Expression Pattern
-        frompatt := 'FROM\s+([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
-        orapattern := '\s*?,\s*?([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
-        joinpattern := 'JOIN\s+([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
 
         -- For debug
 --        dbms_output.put_line('SEQ : '  || queries(idx).seq || CHR(10)|| 'QUERY : '|| query || CHR(10));
@@ -280,9 +288,13 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                 -- Convert END ---------------------------------------------------------------------------------------
             
             END LOOP; ------ GET def column list END
-        
+
+        grpno := 93;
+    
         UPDATE ORADEF.TB_METACONV 
-        SET CONV_TEXT = query, RET_CONV = result_conv 
+        SET CONV_TEXT = query, 
+            RET_CONV = result_conv, 
+            LAST_HANDLE = '('||USER||') '||SYS_CONTEXT('USERENV','OS_USER')
         WHERE SEQ = queries(idx).seq;
             
         -- For debug
@@ -295,6 +307,8 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
 
     -- || Global Exception Area || 
     EXCEPTION 
+        WHEN nodata THEN
+            dbms_output.put_line('There is no data to convert.');
         WHEN OTHERS THEN 
             dbms_output.put_line(CHR(10)||
                                  '--------------------------------------------------------'||
