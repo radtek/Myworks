@@ -1,6 +1,6 @@
 #!/bin/bash
 export ORACLE_HOME=/oracle/product/11.2.0/dbhome_1
-export ORACLE_SID=GLSORA
+export ORACLE_SID=SID
 PASSWORD=oracle!23
 DATE=`date +%y%m%d_%H%M%S`
 DUMPFILE=$1

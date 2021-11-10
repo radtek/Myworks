@@ -1,3 +1,4 @@
+CREATE OR REPLACE PROCEDURE ORADEF.SP_METACONV
 /*
 -- Column Replace Procedure (Non-Stored)
 
@@ -18,8 +19,7 @@ COMMENT ON COLUMN ORADEV.METACONV.INSDATE IS 'INSERT 된 날짜';
 COMMENT ON COLUMN ORADEV.METACONV.RET_CONV IS '전환 결과';
 COMMENT ON COLUMN ORADEV.METACONV.LAST_HANDLE IS '실행자';
 */
-
-DECLARE
+IS
 -- TYPE DEFS -----------------------------------------------------------
     TYPE        tlist 
     IS TABLE OF varchar2(256)
@@ -27,8 +27,8 @@ DECLARE
 
     TYPE        defs
     IS RECORD (
-    asis_col    oradev.tb_def_meta.asis_column%type,
-    conv_col    oradev.tb_def_meta.new_def_col%type
+    asis_col    ORADEF.TB_DEF_META_TEST.asis_column%type,
+    conv_col    ORADEF.TB_DEF_META_TEST.new_def_col%type
     );
 
     TYPE        deflist
@@ -49,13 +49,16 @@ DECLARE
     joinpattern varchar2(62);
     updatepatt  varchar2(33);
     insertpatt  varchar2(38);
+    endpatt     varchar2(10);
     pattern     varchar2(4000);
     comm1       varchar2(300);
     comm2       varchar2(300);
+    endcomm     varchar2(10);
     comments    varchar2(300);
     handler     varchar2(100);
     spacepatt   varchar2(10);
     spacesym    varchar2(10);
+    rech        varchar2(30);
     query       clob;
     result_conv clob;
     grpno       NUMBER;
@@ -64,6 +67,7 @@ DECLARE
     outcount    NUMBER;
     jptcount    NUMBER;
     inschem     NUMBER;
+    rech_cnt    NUMBER;
     reglike     tlist;
     tablelist   tlist;
     ret_count   tlist;
@@ -86,7 +90,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
     -- Get data ---------------------------------------------------------------------------------------------------
     SELECT SEQ, ASIS_TEXT 
     BULK COLLECT INTO queries 
-    FROM ORADEV.TB_METACONV 
+    FROM ORADEF.TB_METACONV 
     WHERE CONV_TEXT IS NULL; 
 
     IF queries.count = 0 THEN
@@ -212,7 +216,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                 IF inschem = 0 THEN -- check contained schema_name in query
                     SELECT ASIS_COLUMN, NEW_DEF_COL
                     BULK COLLECT INTO deftabs
-                    FROM ORADEV.TB_DEF_META
+                    FROM ORADEF.TB_DEF_META_TEST
                     WHERE ASIS_TABLE = upper(tablelist(t))
                     AND ASIS_COLUMN IS NOT NULL
                     AND NEW_DEF_COL IS NOT NULL
@@ -220,8 +224,8 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                 ELSE 
                     SELECT ASIS_COLUMN, NEW_DEF_COL 
                     BULK COLLECT INTO deftabs
-                    FROM ORADEV.TB_DEF_META
-                    WHERE ASIS_TABLE = upper(substr(tablelist(t), inschem + 1))
+                    FROM ORADEF.TB_DEF_META_TEST
+                    WHERE ASIS_TABLE = REPLACE(upper(substr(tablelist(t), inschem + 1)),'DBO.','')
                     AND ASIS_SCHEM = upper(substr(tablelist(t), 1, inschem - 1))
                     AND ASIS_COLUMN IS NOT NULL
                     AND NEW_DEF_COL IS NOT NULL
@@ -231,101 +235,115 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                 -- For debug
 --                dbms_output.put_line(CHR(10)|| ' COUNT : ' || to_char(deftabs.count) || CHR(10));
 --                dbms_output.put_line('TABLE : '||tablelist(t));
-            
-                result_conv := result_conv||'TABLE : '||tablelist(t)||CHR(10);
-            
-                -- || CONVERT Column_name ||-------------------------------------------------------------------------
-                IF deftabs.count > 0 THEN 
-                    FOR indx IN deftabs.FIRST .. deftabs.LAST -- Compare and convert loop
-                        LOOP
-
-                            -- For debug
---                            dbms_output.put_line(CHR(10)|| 'ASIS_COL : ' || to_char(deftabs(indx).asis_col) || CHR(10) ||
---                                                 'CONV_COL : ' || to_char(deftabs(indx).conv_col));
-                        
-                            comm1 := deftabs(indx).conv_col||' /*'||deftabs(indx).asis_col||'*/';
-                            comm2 := deftabs(indx).conv_col||' /*기존과 같음*/';
-                        
---                            IF (instr(query, comm1, 1) = 0) AND (instr(query, comm2, 1) = 0 ) THEN 
-                            IF (regexp_count(query, ' \/\*.?'||deftabs(indx).asis_col||'\*\/', 1, 'mni') = 0 ) 
-                            AND (regexp_count(query, deftabs(indx).conv_col||' \/\*기존과 같음\*\/', 1, 'mni') = 0 ) THEN 
-                                IF upper(deftabs(indx).asis_col) <> deftabs(indx).conv_col THEN
-
-                                    -- For debug
---                                    dbms_output.put_line('  Changed : '||deftabs(indx).asis_col||'->'||deftabs(indx).conv_col);
-                                
-                                    IF regexp_count(query, deftabs(indx).asis_col, 1, 'mni') <> 0 THEN 
-                                        result_conv := result_conv||'  Changed : '||deftabs(indx).asis_col||
-                                                                    '->'||deftabs(indx).conv_col||CHR(10);
-                                        comments := comm1;
-                                    ELSE 
-                                        result_conv := result_conv||'  Not Found in Text : '||deftabs(indx).asis_col||CHR(10);
-                                        comments := '';
-                                    END IF;
-
-                                ELSIF upper(deftabs(indx).asis_col) = deftabs(indx).conv_col THEN
-
-                                    -- For debug
---                                    dbms_output.put_line('  Passed  : '||deftabs(indx).asis_col||'='||deftabs(indx).conv_col);
-
-                                    IF regexp_count(query, deftabs(indx).asis_col, 1, 'mni') <> 0 THEN 
-                                        result_conv := result_conv||'  Passed  : '||deftabs(indx).asis_col||
-                                                                '='||deftabs(indx).conv_col||CHR(10);
-                                        comments := comm2;
-                                    ELSE
-                                        result_conv := result_conv||'  Not Found in Text : '||deftabs(indx).asis_col||CHR(10);
-                                        comments := '';
-                                    END IF;
-
-                                ELSE 
-
-                                    -- For debug
---                                    dbms_output.put_line('  Invalid : '||deftabs(indx).asis_col||'??'||deftabs(indx).conv_col);
-                                
-                                    result_conv := result_conv||'  Invalid : '||deftabs(indx).asis_col||
-                                                                '??'||deftabs(indx).conv_col||CHR(10);
-                                END IF;
-                            
-                                IF comments IS NOT NULL THEN 
-                                    FOR r_idx IN 1 .. 8
-                                        LOOP 
-                                            IF r_idx = 1 THEN spacepatt := 'SELECT\s+'; spacesym := 'SELECT ';
-                                            ELSIF r_idx = 2 THEN spacepatt := ',\s*?'; spacesym := ', ';
-                                            ELSIF r_idx = 3 THEN spacepatt := 'WHERE\s+'; spacesym := 'WHERE ';
-                                            ELSIF r_idx = 4 THEN spacepatt := 'AND\s+'; spacesym := 'AND ';
-                                            ELSIF r_idx = 5 THEN spacepatt := 'SET\s+'; spacesym := 'SET ';
-                                            ELSIF r_idx = 6 THEN spacepatt := '(\s*?'; spacesym := '(';
-                                            ELSIF r_idx = 7 THEN spacepatt := '\[\s*?'; spacesym := '[';
-                                            ELSE spacepatt := '\.'; spacesym := '.';
-                                            END IF;
-
-                                        query := regexp_replace(query, spacepatt||deftabs(indx).asis_col, spacesym||comments, 1, 0, 'mni');
-
-                                    END LOOP ;
-                                END IF;
-                        
-                            ELSE 
-                            
+                IF upper(tablelist(t)) NOT IN ('AND','END','WHEN','THEN','ELSE','AS') THEN             
+                    result_conv := result_conv||'TABLE : '||tablelist(t)||CHR(10);
+                    -- || CONVERT Column_name ||-------------------------------------------------------------------------
+                    IF deftabs.count > 0 THEN 
+                        FOR indx IN deftabs.FIRST .. deftabs.LAST -- Compare and convert loop
+                            LOOP
+    
                                 -- For debug
---                                dbms_output.put_line('  Already changed : '||deftabs(indx).asis_col);
+    --                            dbms_output.put_line(CHR(10)|| 'ASIS_COL : ' || to_char(deftabs(indx).asis_col) || CHR(10) ||
+    --                                                 'CONV_COL : ' || to_char(deftabs(indx).conv_col));
                             
-                                result_conv := result_conv||'  Already changed : '||deftabs(indx).asis_col||CHR(10);
-                            END IF;
-                        END LOOP; ------ Compare and convert loop end 
-                ELSE
-                
-                    -- For debug
---                    dbms_output.put_line('  Invalid : Table not found.');
-                
-                    result_conv := result_conv||'  Invalid : Table name was not found in definition table.'||CHR(10);
-                END IF;
-                -- Convert END ---------------------------------------------------------------------------------------
+                                comm1 := deftabs(indx).conv_col||' /*'||deftabs(indx).asis_col||'*/';
+                                comm2 := deftabs(indx).conv_col||' /*기존과 같음*/';
+                                rech := '';
+                            
+    --                            IF (instr(query, comm1, 1) = 0) AND (instr(query, comm2, 1) = 0 ) THEN 
+                                IF (regexp_count(query, ' \/\*.?'||deftabs(indx).asis_col||'\*\/', 1, 'mni') = 0 ) 
+                                AND (regexp_count(query, deftabs(indx).conv_col||' \/\*기존과 같음\*\/', 1, 'mni') = 0 ) THEN 
+                                    IF upper(deftabs(indx).asis_col) <> deftabs(indx).conv_col THEN
+    
+                                        -- For debug
+    --                                    dbms_output.put_line('  Changed : '||deftabs(indx).asis_col||'->'||deftabs(indx).conv_col);
+                                    
+                                        IF regexp_count(query, deftabs(indx).asis_col, 1, 'mni') <> 0 THEN 
+                                            result_conv := result_conv||'  Changed : '||deftabs(indx).asis_col||
+                                                                        '->'||deftabs(indx).conv_col||CHR(10);
+
+                                            IF regexp_count(query, upper(deftabs(indx).asis_col)||' \/\*기존과 같음\*\/', 1, 'mni') > 0 THEN 
+                                                rech := ' \/\*기존과 같음\*\/';
+                                            END IF;
+                                            comments := comm1;
+                                        ELSE 
+                                            result_conv := result_conv||'  Not Found in Text : '||deftabs(indx).asis_col||CHR(10);
+                                            comments := '';
+                                        END IF;
+    
+                                    ELSIF upper(deftabs(indx).asis_col) = deftabs(indx).conv_col THEN
+    
+                                        -- For debug
+    --                                    dbms_output.put_line('  Passed  : '||deftabs(indx).asis_col||'='||deftabs(indx).conv_col);
+    
+                                        IF regexp_count(query, deftabs(indx).asis_col, 1, 'mni') <> 0 THEN 
+                                            result_conv := result_conv||'  Passed  : '||deftabs(indx).asis_col||
+                                                                    '='||deftabs(indx).conv_col||CHR(10);
+                                            comments := comm2;
+                                        ELSE
+                                            result_conv := result_conv||'  Not Found in Text : '||deftabs(indx).asis_col||CHR(10);
+                                            comments := '';
+                                        END IF;
+    
+                                    ELSE 
+    
+                                        -- For debug
+    --                                    dbms_output.put_line('  Invalid : '||deftabs(indx).asis_col||'??'||deftabs(indx).conv_col);
+                                    
+                                        result_conv := result_conv||'  Invalid : '||deftabs(indx).asis_col||
+                                                                    '??'||deftabs(indx).conv_col||CHR(10);
+                                    END IF;
+                                
+                                    IF comments IS NOT NULL THEN 
+                                    FOR r_idx IN 1 .. 5
+                                    LOOP 
+                                        IF r_idx = 1 THEN spacepatt := '\s'; spacesym := ' ';
+                                        ELSIF r_idx = 2 THEN spacepatt := '\(\s*?'; spacesym := '(';
+                                        ELSIF r_idx = 3 THEN spacepatt := '\[\s*?'; spacesym := '[';
+                                        ELSIF r_idx = 4 THEN spacepatt := ','; spacesym := ', ';
+                                        ELSE spacepatt := '\.'; spacesym := '.';
+                                        END IF;
+                                    
+                                        FOR o_idx IN 1 .. 6
+                                            LOOP
+                                                IF rech IS NULL THEN
+                                                    IF o_idx = 1 THEN endpatt := '$'; endcomm := '';
+                                                    ELSIF o_idx = 2 THEN endpatt := '\s'; endcomm := ' ';
+                                                    ELSIF o_idx = 3 THEN endpatt := '\)'; endcomm := ')';
+                                                    ELSIF o_idx = 4 THEN endpatt := '\]'; endcomm := ']';
+                                                    ELSIF o_idx = 5 THEN endpatt := '='; endcomm := '=';
+                                                    ELSE endpatt := ','; endcomm := ',';
+                                                    END IF;
+                                                END IF;
+                                            
+                                                    query := regexp_replace(query, spacepatt||deftabs(indx).asis_col||rech||endpatt, spacesym||comments||endcomm, 1, 0, 'mi');
             
+                                            END LOOP ;
+                                        END LOOP;
+                                    END IF;
+                            
+                                ELSE 
+                                
+                                    -- For debug
+    --                                dbms_output.put_line('  Already changed : '||deftabs(indx).asis_col);
+                                
+                                    result_conv := result_conv||'  Already changed : '||deftabs(indx).asis_col||CHR(10);
+                                END IF;
+                            END LOOP; ------ Compare and convert loop end 
+                    ELSE
+                    
+                        -- For debug
+    --                    dbms_output.put_line('  Invalid : Table not found.');
+                    
+                        result_conv := result_conv||'  Invalid : Table name was not found in definition table.'||CHR(10);
+                    END IF;
+                    -- Convert END ---------------------------------------------------------------------------------------
+                END IF;
             END LOOP; ------ GET def column list END
 
         grpno := 93;
     
-        UPDATE ORADEV.TB_METACONV 
+        UPDATE ORADEF.TB_METACONV 
         SET CONV_TEXT = query, 
             RET_CONV = result_conv, 
             LAST_HANDLE = handler
