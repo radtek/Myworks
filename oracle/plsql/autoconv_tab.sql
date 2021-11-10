@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 CREATE OR REPLACE PROCEDURE ORADEV.SP_METACONV
+=======
+CREATE OR REPLACE PROCEDURE ORADEF.SP_METACONV
+>>>>>>> 6ea8e9b4e162574ea8ca2941b8a7577d1ac06245
 /*
 -- Column Replace Procedure (Non-Stored)
 
@@ -27,8 +31,13 @@ IS
 
     TYPE        defs
     IS RECORD (
+<<<<<<< HEAD
     asis_col    ORADEV.TB_DEF_META.asis_column%type,
     conv_col    ORADEV.TB_DEF_META.new_def_col%type
+=======
+    asis_col    ORADEF.TB_DEF_META_TEST.asis_column%type,
+    conv_col    ORADEF.TB_DEF_META_TEST.new_def_col%type
+>>>>>>> 6ea8e9b4e162574ea8ca2941b8a7577d1ac06245
     );
 
     TYPE        deflist
@@ -90,7 +99,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
     -- Get data ---------------------------------------------------------------------------------------------------
     SELECT SEQ, ASIS_TEXT 
     BULK COLLECT INTO queries 
-    FROM ORADEV.TB_METACONV 
+    FROM ORADEF.TB_METACONV 
     WHERE CONV_TEXT IS NULL; 
 
     IF queries.count = 0 THEN
@@ -216,7 +225,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                 IF inschem = 0 THEN -- check contained schema_name in query
                     SELECT ASIS_COLUMN, NEW_DEF_COL
                     BULK COLLECT INTO deftabs
-                    FROM ORADEV.TB_DEF_META
+                    FROM ORADEF.TB_DEF_META_TEST
                     WHERE ASIS_TABLE = upper(tablelist(t))
                     AND ASIS_COLUMN IS NOT NULL
                     AND NEW_DEF_COL IS NOT NULL
@@ -224,7 +233,11 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                 ELSE 
                     SELECT ASIS_COLUMN, NEW_DEF_COL 
                     BULK COLLECT INTO deftabs
+<<<<<<< HEAD
                     FROM ORADEV.TB_DEF_META
+=======
+                    FROM ORADEF.TB_DEF_META_TEST
+>>>>>>> 6ea8e9b4e162574ea8ca2941b8a7577d1ac06245
                     WHERE ASIS_TABLE = REPLACE(upper(substr(tablelist(t), inschem + 1)),'DBO.','')
                     AND ASIS_SCHEM = upper(substr(tablelist(t), 1, inschem - 1))
                     AND ASIS_COLUMN IS NOT NULL
@@ -295,6 +308,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                                     END IF;
                                 
                                     IF comments IS NOT NULL THEN 
+<<<<<<< HEAD
                                         FOR r_idx IN 1 .. 8
                                             LOOP 
                                                 IF r_idx = 1 THEN spacepatt := 'SELECT\s+'; spacesym := 'SELECT ';
@@ -322,6 +336,32 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                                                     query := regexp_replace(query, spacepatt||deftabs(indx).asis_col||rech||endpatt, spacesym||comments||endcomm, 1, 0, 'mi');
             
                                                 END LOOP ;
+=======
+                                    FOR r_idx IN 1 .. 5
+                                    LOOP 
+                                        IF r_idx = 1 THEN spacepatt := '\s'; spacesym := ' ';
+                                        ELSIF r_idx = 2 THEN spacepatt := '\(\s*?'; spacesym := '(';
+                                        ELSIF r_idx = 3 THEN spacepatt := '\[\s*?'; spacesym := '[';
+                                        ELSIF r_idx = 4 THEN spacepatt := ','; spacesym := ', ';
+                                        ELSE spacepatt := '\.'; spacesym := '.';
+                                        END IF;
+                                    
+                                        FOR o_idx IN 1 .. 6
+                                            LOOP
+                                                IF rech IS NULL THEN
+                                                    IF o_idx = 1 THEN endpatt := '$'; endcomm := '';
+                                                    ELSIF o_idx = 2 THEN endpatt := '\s'; endcomm := ' ';
+                                                    ELSIF o_idx = 3 THEN endpatt := '\)'; endcomm := ')';
+                                                    ELSIF o_idx = 4 THEN endpatt := '\]'; endcomm := ']';
+                                                    ELSIF o_idx = 5 THEN endpatt := '='; endcomm := '=';
+                                                    ELSE endpatt := ','; endcomm := ',';
+                                                    END IF;
+                                                END IF;
+                                            
+                                                    query := regexp_replace(query, spacepatt||deftabs(indx).asis_col||rech||endpatt, spacesym||comments||endcomm, 1, 0, 'mi');
+            
+                                            END LOOP ;
+>>>>>>> 6ea8e9b4e162574ea8ca2941b8a7577d1ac06245
                                         END LOOP;
                                     END IF;
                             
@@ -346,7 +386,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
 
         grpno := 93;
     
-        UPDATE ORADEV.TB_METACONV 
+        UPDATE ORADEF.TB_METACONV 
         SET CONV_TEXT = query, 
             RET_CONV = result_conv, 
             LAST_HANDLE = handler
