@@ -1,6 +1,6 @@
 #!/bin/bash
 export ORACLE_HOME=/oracle/product/11.2.0/dbhome_1
-export ORACLE_SID=GLSORA
+export ORACLE_SID=SID
 PASSWORD=oracle!23
 EXP_DIR=BACKUP_ADM
 SCHEMAS=($(ls -l /oradmp/backup_dmp/*.dmp | awk '{print $9}' | awk -F '.' '{print $1}'))
