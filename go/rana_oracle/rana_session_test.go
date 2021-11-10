@@ -62,7 +62,7 @@ func main() {
 
 	var db string
 	var reculse time.Duration
-	db = "bidmgr/test12@ptsdb:1522/PTSDB"
+	db = "user/pass@host:1521/SID"
 	reculse = 2
 	for {
 		var secol sesTable

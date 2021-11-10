@@ -153,7 +153,7 @@ func (secollect *sesTable) send() {
 func main() {
 	var db string
 	var reculse time.Duration
-	db = "system/dtmdb1!@dfcalldb:1534/DTMDB"
+	db = "system/password@host:1521/SID"
 	reculse = 3
 	for {
 		var secol sesTable
