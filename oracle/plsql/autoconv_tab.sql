@@ -46,7 +46,8 @@ IS
 -- VARIABLE DEFS -------------------------------------------------------
     frompatt    varchar2(52);
     orapattern  varchar2(54);
-    joinpattern varchar2(62);
+    joinpattern varchar2(48);
+    onpattern   varchar2(46);
     updatepatt  varchar2(33);
     insertpatt  varchar2(38);
     endpatt     varchar2(10);
@@ -84,6 +85,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
     frompatt := 'FROM\s+([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_\(\)]{0,}?';
     orapattern := '\s*?,\s*?([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_\(\)]{0,}?';
     joinpattern := 'JOIN\s+([a-z1-9\$\_\.]{1,})\s*?[a-z1-9\$\_]{0,}?';
+    onpattern := '\s*?ON\s+[a-z\_\.]{1,}?\s*?=\s*?[a-z\_\.]{1,}?';
     updatepatt := 'UPDATE\s+([a-z1-9\$\_\.]{1,})\s*?';
     insertpatt := 'INSERT INTO\s+([a-z1-9\$\_\.]{1,})\s*?';
 
@@ -123,9 +125,15 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                     END IF;
                 ELSIF jptcount=1 THEN
                         pattern := joinpattern;             -- SET Pattern : ansi JOIN
-                ELSIF jptcount=2 THEN
+                ELSIF jptcount=2 THEN                       -- SET Pattern : ansi + oracle JOIN
+                    IF outcount = 1 THEN
+                        pattern := joinpattern || onpattern;
+                    ELSE 
+                        pattern := pattern || orapattern;
+                    END IF;
+                ELSIF jptcount=3 THEN
                         pattern := updatepatt;
-                ELSIF jptcount=3 THEN 
+                ELSIF jptcount=4 THEN 
                         pattern := insertpatt;
                 END IF; 
     
@@ -134,7 +142,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                         EXIT WHEN reglike(arrno) IS NULL ;
                     
                         -- For debug
---                        dbms_output.put_line('TABLE '||TO_CHAR(arrno)||' : '||reglike(arrno)); 
+--                        dbms_output.put_line('TABLE '||TO_CHAR(arrno)||' : '||reglike(arrno)||chr(10)||'Jcount : '||jptcount); 
                     
                         arrno := arrno+1;
                         incount := incount+1;
@@ -142,7 +150,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                     END LOOP; -- REGEX INNER LOOP END
                 
     
-                EXIT WHEN jptcount = 3 ;  
+                EXIT WHEN jptcount = 4 ;  
                 grpno := grpno+1;
                 outcount := outcount + 1;
             
@@ -295,7 +303,7 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                                     END IF;
                                 
                                     IF comments IS NOT NULL THEN 
-                                        FOR r_idx IN 1 .. 8
+                                    FOR r_idx IN 1 .. 8
                                             LOOP 
                                                 IF r_idx = 1 THEN spacepatt := 'SELECT\s+'; spacesym := 'SELECT ';
                                                 ELSIF r_idx = 2 THEN spacepatt := ',\s*?'; spacesym := ', ';
@@ -306,22 +314,22 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
                                                 ELSIF r_idx = 7 THEN spacepatt := '\[\s*?'; spacesym := '[';
                                                 ELSE spacepatt := '\.'; spacesym := '.';
                                                 END IF;
+                                    
+                                        FOR o_idx IN 1 .. 6
+                                            LOOP
+                                                IF rech IS NULL THEN
+                                                    IF o_idx = 1 THEN endpatt := '$'; endcomm := '';
+                                                    ELSIF o_idx = 2 THEN endpatt := '\s'; endcomm := ' ';
+                                                    ELSIF o_idx = 3 THEN endpatt := '\)'; endcomm := ')';
+                                                    ELSIF o_idx = 4 THEN endpatt := '\]'; endcomm := ']';
+                                                    ELSIF o_idx = 5 THEN endpatt := '='; endcomm := '=';
+                                                    ELSE endpatt := ','; endcomm := ',';
+                                                    END IF;
+                                                END IF;
                                             
-                                                FOR o_idx IN 1 .. 6
-                                                    LOOP
-                                                        IF rech IS NULL THEN
-                                                            IF o_idx = 1 THEN endpatt := '$'; endcomm := '';
-                                                            ELSIF o_idx = 2 THEN endpatt := '\s'; endcomm := ' ';
-                                                            ELSIF o_idx = 3 THEN endpatt := '\)'; endcomm := ')';
-                                                            ELSIF o_idx = 4 THEN endpatt := '\]'; endcomm := ']';
-                                                            ELSIF o_idx = 5 THEN endpatt := '='; endcomm := '=';
-                                                            ELSE endpatt := ','; endcomm := ',';
-                                                            END IF;
-                                                        END IF;
-                                                    
                                                     query := regexp_replace(query, spacepatt||deftabs(indx).asis_col||rech||endpatt, spacesym||comments||endcomm, 1, 0, 'mi');
             
-                                                END LOOP ;
+                                            END LOOP ;
                                         END LOOP;
                                     END IF;
                             
@@ -382,5 +390,5 @@ BEGIN -- PROCEDURE START -------------------------------------------------------
             dbms_output.put_line('PROBLEM ==> '||SQLERRM||CHR(10)||
                                  '--------------------------------------------------------'||
                                  CHR(10));
-            
+COMMIT;            
 END; -- PROCEDURE END ---------------------------------------------------------------------------------------------
